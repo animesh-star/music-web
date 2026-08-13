@@ -140,32 +140,38 @@ const ParticleCanvas = React.memo(function ParticleCanvas({
       });
     }
 
-    // Continuously spawn particles for 5.0 seconds (300 frames at 60fps)
-    let frameCount = 0;
-    const maxFrames = 300; // 5.0 seconds
+    const startTime = performance.now();
+    const TOTAL_DURATION = 5000; // Exactly 5 seconds total
+    const SPAWN_DURATION = 3500;  // 3.5s spawning, 1.5s fade out
 
-    const render = () => {
-      ctx.clearRect(0, 0, width, height);
-      frameCount++;
-
-      if (frameCount < maxFrames) {
-        if (frameCount % 4 === 0) {
-          const offsetX = (Math.random() - 0.5) * 70;
-          const offsetY = (Math.random() - 0.5) * 50;
-          particles.push({
-            x: burstTrigger.x + offsetX,
-            y: burstTrigger.y + offsetY,
-            vx: (Math.random() - 0.5) * 2,
-            vy: -1.2 - Math.random() * 2.2,
-            size: 14 + Math.random() * 14,
-            text: heartSymbols[Math.floor(Math.random() * heartSymbols.length)],
-            alpha: 0.95,
-            decay: 0.005 + Math.random() * 0.007,
-            rot: (Math.random() - 0.5) * 0.3,
-            rotSpeed: (Math.random() - 0.5) * 0.04,
-          });
-        }
+    const render = (now: number) => {
+      const elapsed = now - startTime;
+      if (elapsed >= TOTAL_DURATION) {
+        ctx.clearRect(0, 0, width, height);
+        return;
       }
+
+      ctx.clearRect(0, 0, width, height);
+
+      if (elapsed < SPAWN_DURATION && Math.random() < 0.35) {
+        const offsetX = (Math.random() - 0.5) * 70;
+        const offsetY = (Math.random() - 0.5) * 50;
+        particles.push({
+          x: burstTrigger.x + offsetX,
+          y: burstTrigger.y + offsetY,
+          vx: (Math.random() - 0.5) * 2,
+          vy: -1.2 - Math.random() * 2.2,
+          size: 14 + Math.random() * 14,
+          text: heartSymbols[Math.floor(Math.random() * heartSymbols.length)],
+          alpha: 0.95,
+          decay: 0.016 + Math.random() * 0.01,
+          rot: (Math.random() - 0.5) * 0.3,
+          rotSpeed: (Math.random() - 0.5) * 0.04,
+        });
+      }
+
+      // Smooth fade out during the last 1 second
+      const globalFade = elapsed > 4000 ? Math.max(0, (5000 - elapsed) / 1000) : 1;
 
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
@@ -182,7 +188,7 @@ const ParticleCanvas = React.memo(function ParticleCanvas({
         }
 
         ctx.save();
-        ctx.globalAlpha = Math.max(0, Math.min(1, p.alpha));
+        ctx.globalAlpha = Math.max(0, Math.min(1, p.alpha * globalFade));
         ctx.translate(p.x, p.y);
         ctx.rotate(p.rot);
         ctx.font = `${p.size}px sans-serif`;
@@ -192,12 +198,10 @@ const ParticleCanvas = React.memo(function ParticleCanvas({
         ctx.restore();
       }
 
-      if (particles.length > 0 || frameCount < maxFrames) {
-        animId = requestAnimationFrame(render);
-      }
+      animId = requestAnimationFrame(render);
     };
 
-    render();
+    animId = requestAnimationFrame(render);
 
     return () => {
       cancelAnimationFrame(animId);
