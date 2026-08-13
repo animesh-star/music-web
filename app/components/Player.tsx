@@ -345,9 +345,8 @@ const SeekBar = React.memo(function SeekBar({
       </div>
       {/* Knob (Visible on Hover / Drag) */}
       <div
-        className={`absolute w-3.5 h-3.5 rounded-full bg-white shadow-md transition-opacity duration-150 transform -translate-x-1/2 ${
-          isDragging ? "opacity-100 scale-125" : "opacity-0 group-hover:opacity-100"
-        }`}
+        className={`absolute w-3.5 h-3.5 rounded-full bg-white shadow-md transition-opacity duration-150 transform -translate-x-1/2 ${isDragging ? "opacity-100 scale-125" : "opacity-0 group-hover:opacity-100"
+          }`}
         style={{
           left: `${progressPercent}%`,
           boxShadow: `0 0 8px ${accentColor}`,
@@ -571,11 +570,10 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
                   title={isFavorite ? "Remove from Favorites" : "Add to Favorites"}
                 >
                   <Heart
-                    className={`w-4 h-4 transition-all duration-300 ${
-                      isFavorite
+                    className={`w-4 h-4 transition-all duration-300 ${isFavorite
                         ? "fill-rose-500 text-rose-500 scale-110 drop-shadow-[0_0_10px_rgba(244,63,94,0.9)]"
                         : "text-white/60 hover:text-rose-400"
-                    }`}
+                      }`}
                   />
                 </button>
               </div>
@@ -698,11 +696,10 @@ const MobilePlayer = React.memo(function MobilePlayer({
               title={isFavorite ? "Remove from Favorites" : "Add to Favorites"}
             >
               <Heart
-                className={`w-4 h-4 transition-all duration-300 ${
-                  isFavorite
+                className={`w-4 h-4 transition-all duration-300 ${isFavorite
                     ? "fill-rose-500 text-rose-500 scale-110 drop-shadow-[0_0_10px_rgba(244,63,94,0.9)]"
                     : "text-white/60 hover:text-rose-400"
-                }`}
+                  }`}
               />
             </button>
           </div>
@@ -785,6 +782,7 @@ export default function Player({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const playerRef = useRef<YTPlayer | null>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastLoadedYtVideoId = useRef<string | null>(null);
   const globalIframeId = "yt-player-global-container";
 
   // Per-playlist playback memory store (remembers last track & exact timestamp for Scene A, B, C)
@@ -1017,9 +1015,13 @@ export default function Player({
   useEffect(() => {
     if (useYtFallback) {
       if (playerRef.current && typeof playerRef.current.loadVideoById === "function") {
-        playerRef.current.loadVideoById(currentTrack.videoId);
-        if (initialSeekTimeRef.current > 0) {
-          playerRef.current.seekTo(initialSeekTimeRef.current, true);
+        if (lastLoadedYtVideoId.current !== currentTrack.videoId) {
+          playerRef.current.loadVideoById(currentTrack.videoId);
+          lastLoadedYtVideoId.current = currentTrack.videoId;
+          if (initialSeekTimeRef.current > 0) {
+            playerRef.current.seekTo(initialSeekTimeRef.current, true);
+            initialSeekTimeRef.current = 0;
+          }
         }
         if (isPlaying) {
           playerRef.current.playVideo();
