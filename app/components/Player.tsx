@@ -859,7 +859,6 @@ export default function Player({
       } catch {
         // ignore localStorage errors
       } finally {
-        setIsPlaying(true);
         setIsHydrated(true);
       }
     }
@@ -975,7 +974,6 @@ export default function Player({
               initialSeekTimeRef.current = 0;
             }
             lastLoadedYtVideoId.current = currentTrack.videoId;
-            setIsPlaying(true);
             try {
               event.target.playVideo();
             } catch {
@@ -986,6 +984,8 @@ export default function Player({
             if (isCancelled) return;
             if (event.data === window.YT?.PlayerState.PLAYING) {
               setIsPlaying(true);
+            } else if (event.data === window.YT?.PlayerState.PAUSED) {
+              setIsPlaying(false);
             } else if (event.data === window.YT?.PlayerState.ENDED) {
               setIsPlaying(true);
               handleNextTrack();
