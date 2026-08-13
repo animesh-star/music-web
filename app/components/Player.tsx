@@ -45,6 +45,8 @@ interface YTPlayer {
   getCurrentTime: () => number;
   getDuration: () => number;
   getPlayerState: () => number;
+  unMute: () => void;
+  setVolume: (volume: number) => void;
   loadVideoById: (args: string | { videoId: string; startSeconds?: number }) => void;
   cueVideoById: (args: string | { videoId: string; startSeconds?: number }) => void;
   destroy: () => void;
@@ -979,6 +981,8 @@ export default function Player({
             lastLoadedYtVideoId.current = currentTrack.videoId;
             setIsPlaying(true);
             try {
+              event.target.unMute();
+              event.target.setVolume(100);
               event.target.playVideo();
             } catch {
               // ignore autoplay browser restrictions if un-interacted
@@ -1026,6 +1030,8 @@ export default function Player({
       unlocked = true;
       if (playerRef.current && typeof playerRef.current.playVideo === "function") {
         try {
+          playerRef.current.unMute();
+          playerRef.current.setVolume(100);
           playerRef.current.playVideo();
           setIsPlaying(true);
         } catch {
@@ -1208,6 +1214,12 @@ export default function Player({
         playerRef.current.pauseVideo();
         setIsPlaying(false);
       } else {
+        try {
+          playerRef.current.unMute();
+          playerRef.current.setVolume(100);
+        } catch {
+          // ignore
+        }
         playerRef.current.playVideo();
         setIsPlaying(true);
       }
