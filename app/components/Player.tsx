@@ -955,7 +955,7 @@ export default function Player({
         videoId: currentTrack.videoId,
         playerVars: {
           autoplay: 1,
-          mute: 1,
+          mute: 0,
           enablejsapi: 1,
           playsinline: 1,
           origin: typeof window !== "undefined" ? window.location.origin : "",
