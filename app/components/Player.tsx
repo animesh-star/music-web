@@ -977,6 +977,7 @@ export default function Player({
               initialSeekTimeRef.current = 0;
             }
             lastLoadedYtVideoId.current = currentTrack.videoId;
+            setIsPlaying(true);
             try {
               event.target.playVideo();
             } catch {
@@ -1151,7 +1152,7 @@ export default function Player({
 
   // Polling fallback timer if using YouTube iframe
   useEffect(() => {
-    if (useYtFallback && isPlaying) {
+    if (useYtFallback) {
       progressIntervalRef.current = setInterval(() => {
         if (playerRef.current && typeof playerRef.current.getCurrentTime === "function") {
           const t = playerRef.current.getCurrentTime();
@@ -1183,7 +1184,7 @@ export default function Player({
         clearInterval(progressIntervalRef.current);
       }
     };
-  }, [isPlaying, useYtFallback, currentPlaylistId, trackIndex]);
+  }, [useYtFallback, currentPlaylistId, trackIndex]);
 
   // User interactions
   const handlePlayPause = () => {
