@@ -948,8 +948,6 @@ export default function Player({
             if (isCancelled) return;
             if (event.data === window.YT?.PlayerState.PLAYING) {
               setIsPlaying(true);
-            } else if (event.data === window.YT?.PlayerState.PAUSED) {
-              setIsPlaying(false);
             } else if (event.data === window.YT?.PlayerState.ENDED) {
               setIsPlaying(true);
               handleNextTrack();
