@@ -858,6 +858,7 @@ export default function Player({
       } catch {
         // ignore localStorage errors
       } finally {
+        setIsPlaying(true);
         setIsHydrated(true);
       }
     }
@@ -927,7 +928,7 @@ export default function Player({
       playerRef.current = new window.YT.Player(globalIframeId, {
         videoId: currentTrack.videoId,
         playerVars: {
-          autoplay: 0,
+          autoplay: 1,
           controls: 0,
           disablekb: 1,
           fs: 0,
@@ -948,6 +949,12 @@ export default function Player({
               initialSeekTimeRef.current = 0;
             }
             lastLoadedYtVideoId.current = currentTrack.videoId;
+            setIsPlaying(true);
+            try {
+              event.target.playVideo();
+            } catch {
+              // ignore autoplay browser restrictions if un-interacted
+            }
           },
           onStateChange: (event) => {
             if (isCancelled) return;
