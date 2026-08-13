@@ -1073,22 +1073,20 @@ export default function Player({
 
   // Global Autoplay Resume: unlocks audio on ANY first click/touch/keypress on the site if browser blocked initial autoplay
   useEffect(() => {
-    let unlocked = false;
     const unlockAudio = () => {
-      if (unlocked) return;
-      unlocked = true;
       if (playerRef.current && typeof playerRef.current.playVideo === "function") {
         try {
           playerRef.current.unMute();
           playerRef.current.setVolume(100);
           playerRef.current.playVideo();
           setIsPlaying(true);
+          // Only remove listener once player has successfully unlocked
+          window.removeEventListener("pointerdown", unlockAudio);
+          window.removeEventListener("keydown", unlockAudio);
         } catch {
           // ignore
         }
       }
-      window.removeEventListener("pointerdown", unlockAudio);
-      window.removeEventListener("keydown", unlockAudio);
     };
 
     window.addEventListener("pointerdown", unlockAudio);
@@ -1379,6 +1377,15 @@ export default function Player({
         e.preventDefault();
         handleSeek(0);
         setIsPlaying(true);
+        if (playerRef.current) {
+          try {
+            playerRef.current.unMute();
+            playerRef.current.setVolume(100);
+            playerRef.current.playVideo();
+          } catch {
+            // ignore
+          }
+        }
       } else if (e.code === "ArrowLeft") {
         e.preventDefault();
         handleSkipBack10();
