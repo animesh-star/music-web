@@ -1055,6 +1055,10 @@ export default function Player({
             } catch {
               // ignore
             }
+            // Auto-skip to the next track if the YouTube video is restricted or unavailable
+            setTimeout(() => {
+              handleNextTrack();
+            }, 500);
           },
         },
       });
