@@ -810,6 +810,7 @@ export default function Player({
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(180);
   const [showMusicList, setShowMusicList] = useState<boolean>(false);
+  const [isHydrated, setIsHydrated] = useState<boolean>(false);
   // In production, skip local audio and go straight to YouTube
   const [useYtFallback, setUseYtFallback] = useState<boolean>(IS_PRODUCTION);
 
@@ -851,6 +852,8 @@ export default function Player({
         }
       } catch {
         // ignore localStorage errors
+      } finally {
+        setIsHydrated(true);
       }
     }
   }, []);
@@ -898,6 +901,7 @@ export default function Player({
 
   // Setup single YouTube player instance safely as fallback
   useEffect(() => {
+    if (!isHydrated) return;
     let isCancelled = false;
 
     const initPlayer = async () => {
@@ -972,7 +976,7 @@ export default function Player({
     return () => {
       isCancelled = true;
     };
-  }, []);
+  }, [isHydrated]);
 
   // HTML5 Audio element setup & handling (dev only — production uses YouTube)
   useEffect(() => {
@@ -1054,12 +1058,14 @@ export default function Player({
     if (useYtFallback) {
       if (playerRef.current && typeof playerRef.current.loadVideoById === "function") {
         if (lastLoadedYtVideoId.current !== currentTrack.videoId) {
-          playerRef.current.loadVideoById(currentTrack.videoId);
-          lastLoadedYtVideoId.current = currentTrack.videoId;
-          if (initialSeekTimeRef.current > 0) {
-            playerRef.current.seekTo(initialSeekTimeRef.current, true);
+          const seek = initialSeekTimeRef.current;
+          if (seek > 0) {
+            playerRef.current.loadVideoById({ videoId: currentTrack.videoId, startSeconds: seek });
             initialSeekTimeRef.current = 0;
+          } else {
+            playerRef.current.loadVideoById(currentTrack.videoId);
           }
+          lastLoadedYtVideoId.current = currentTrack.videoId;
         }
         if (isPlaying) {
           playerRef.current.playVideo();
