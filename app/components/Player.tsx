@@ -24,7 +24,7 @@ declare global {
           playerVars?: Record<string, unknown>;
           events?: {
             onReady?: (event: { target: YTPlayer }) => void;
-            onStateChange?: (event: { data: number }) => void;
+            onStateChange?: (event: { target: YTPlayer; data: number }) => void;
             onError?: (event: { data: number }) => void;
           };
         }
