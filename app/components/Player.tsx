@@ -902,32 +902,70 @@ export default function Player({
   }, [currentPlaylistId, trackIndex, currentTime]);
 
   const handleNextTrack = useCallback(() => {
-    setTrackIndex((prev) => {
-      const nextIdx = (prev + 1) % currentPlaylist.tracks.length;
-      playlistStatesRef.current[currentPlaylistId] = {
-        trackIndex: nextIdx,
-        currentTime: 0,
-      };
-      return nextIdx;
-    });
+    const nextIdx = (trackIndex + 1) % currentPlaylist.tracks.length;
+    const targetTrack = currentPlaylist.tracks[nextIdx];
+
+    playlistStatesRef.current[currentPlaylistId] = {
+      trackIndex: nextIdx,
+      currentTime: 0,
+    };
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("phoenix_playlist_states", JSON.stringify(playlistStatesRef.current));
+      } catch {
+        // ignore
+      }
+    }
+
+    setTrackIndex(nextIdx);
     setCurrentTime(0);
     initialSeekTimeRef.current = 0;
     setIsPlaying(true);
-  }, [currentPlaylist.tracks.length, currentPlaylistId]);
+
+    if (playerRef.current && targetTrack) {
+      try {
+        playerRef.current.unMute();
+        playerRef.current.setVolume(100);
+        playerRef.current.loadVideoById(targetTrack.videoId);
+        playerRef.current.playVideo();
+      } catch {
+        // ignore
+      }
+    }
+  }, [currentPlaylist.tracks, currentPlaylistId, trackIndex]);
 
   const handlePrevTrack = useCallback(() => {
-    setTrackIndex((prev) => {
-      const prevIdx = (prev - 1 + currentPlaylist.tracks.length) % currentPlaylist.tracks.length;
-      playlistStatesRef.current[currentPlaylistId] = {
-        trackIndex: prevIdx,
-        currentTime: 0,
-      };
-      return prevIdx;
-    });
+    const prevIdx = (trackIndex - 1 + currentPlaylist.tracks.length) % currentPlaylist.tracks.length;
+    const targetTrack = currentPlaylist.tracks[prevIdx];
+
+    playlistStatesRef.current[currentPlaylistId] = {
+      trackIndex: prevIdx,
+      currentTime: 0,
+    };
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("phoenix_playlist_states", JSON.stringify(playlistStatesRef.current));
+      } catch {
+        // ignore
+      }
+    }
+
+    setTrackIndex(prevIdx);
     setCurrentTime(0);
     initialSeekTimeRef.current = 0;
     setIsPlaying(true);
-  }, [currentPlaylist.tracks.length, currentPlaylistId]);
+
+    if (playerRef.current && targetTrack) {
+      try {
+        playerRef.current.unMute();
+        playerRef.current.setVolume(100);
+        playerRef.current.loadVideoById(targetTrack.videoId);
+        playerRef.current.playVideo();
+      } catch {
+        // ignore
+      }
+    }
+  }, [currentPlaylist.tracks, currentPlaylistId, trackIndex]);
 
   // Setup single YouTube player instance safely as fallback
   useEffect(() => {
