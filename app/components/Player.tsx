@@ -822,6 +822,7 @@ export default function Player({
   const playerRef = useRef<YTPlayer | null>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastLoadedYtVideoId = useRef<string | null>(null);
+  const musicListRef = useRef<HTMLDivElement | null>(null);
   const globalIframeId = "yt-player-global-container";
 
   // Per-playlist playback memory store (remembers last track & exact timestamp for Scene A, B, C)
@@ -1247,12 +1248,35 @@ export default function Player({
       } else if (keyLower === "c" || e.code === "KeyC") {
         e.preventDefault();
         handleSwitchPlaylist("punjabi-modern");
+      } else if (keyLower === "o" || e.code === "KeyO") {
+        e.preventDefault();
+        setShowMusicList((prev) => !prev);
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handlePlayPause, handleSkipBack10, handleSkipForward10, handleNextTrack, handlePrevTrack, handleSwitchPlaylist]);
+
+  // Close Music List when clicking anywhere outside on the site
+  useEffect(() => {
+    if (!showMusicList) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (musicListRef.current && !musicListRef.current.contains(e.target as Node)) {
+        setShowMusicList(false);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      window.addEventListener("click", handleClickOutside);
+    }, 10);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("click", handleClickOutside);
+    };
+  }, [showMusicList]);
 
   const [favorites, setFavorites] = useState<Record<string, boolean>>(() => {
     if (typeof window !== "undefined") {
@@ -1314,7 +1338,10 @@ export default function Player({
 
       {/* Floating Music List Drawer Popover */}
       {showMusicList && (
-        <div className="absolute bottom-full mb-3 inset-x-0 bg-neutral-900/90 backdrop-blur-xl border border-white/15 rounded-3xl p-4 shadow-2xl z-50 max-h-80 overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-200">
+        <div
+          ref={musicListRef}
+          className="absolute bottom-full mb-3 inset-x-0 bg-neutral-900/90 backdrop-blur-xl border border-white/15 rounded-3xl p-4 shadow-2xl z-50 max-h-80 overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-200"
+        >
           <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
             <div className="flex items-center gap-2">
               <ListMusic className="w-4 h-4 text-rose-400" />
