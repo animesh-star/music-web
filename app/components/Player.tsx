@@ -1459,6 +1459,16 @@ export default function Player({
                     setCurrentTime(0);
                     initialSeekTimeRef.current = 0;
                     setIsPlaying(true);
+                    if (playerRef.current) {
+                      try {
+                        playerRef.current.unMute();
+                        playerRef.current.setVolume(100);
+                        playerRef.current.loadVideoById(tr.videoId);
+                        playerRef.current.playVideo();
+                      } catch {
+                        // ignore
+                      }
+                    }
                   }}
                   className={`w-full flex items-center justify-between p-2 rounded-xl text-left transition-all ${
                     isActive
