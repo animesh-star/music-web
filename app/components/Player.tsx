@@ -954,7 +954,8 @@ export default function Player({
       playerRef.current = new window.YT.Player(globalIframeId, {
         videoId: currentTrack.videoId,
         playerVars: {
-          autoplay: 0,
+          autoplay: 1,
+          mute: 1,
           enablejsapi: 1,
           playsinline: 1,
           origin: typeof window !== "undefined" ? window.location.origin : "",
@@ -979,7 +980,9 @@ export default function Player({
               initialSeekTimeRef.current = 0;
             }
             lastLoadedYtVideoId.current = currentTrack.videoId;
+            setIsPlaying(true);
             try {
+              event.target.playVideo();
               event.target.unMute();
               event.target.setVolume(100);
             } catch {
@@ -990,6 +993,12 @@ export default function Player({
             if (isCancelled) return;
             if (event.data === window.YT?.PlayerState.PLAYING) {
               setIsPlaying(true);
+              try {
+                event.target.unMute();
+                event.target.setVolume(100);
+              } catch {
+                // ignore
+              }
             } else if (event.data === window.YT?.PlayerState.PAUSED) {
               setIsPlaying(false);
             } else if (event.data === window.YT?.PlayerState.ENDED) {
