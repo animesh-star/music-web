@@ -1325,7 +1325,9 @@ export default function Player({
     savePlaylistStates();
 
     // 2. Fetch saved state of incoming scene
+    const targetPlaylist = PLAYLISTS.find((p) => p.id === newPlaylistId) || PLAYLISTS[0];
     const savedState = playlistStatesRef.current[newPlaylistId] || { trackIndex: 0, currentTime: 0 };
+    const targetTrack = targetPlaylist.tracks[savedState.trackIndex] || targetPlaylist.tracks[0];
 
     // 3. Set seek target for the new scene audio stream
     initialSeekTimeRef.current = savedState.currentTime;
@@ -1335,6 +1337,23 @@ export default function Player({
     setTrackIndex(savedState.trackIndex);
     setCurrentTime(savedState.currentTime);
     setIsPlaying(true);
+
+    if (playerRef.current && targetTrack) {
+      try {
+        lastLoadedYtVideoId.current = targetTrack.videoId;
+        playerRef.current.unMute();
+        playerRef.current.setVolume(100);
+        const seek = Math.floor(savedState.currentTime || 0);
+        if (seek > 0) {
+          playerRef.current.loadVideoById({ videoId: targetTrack.videoId, startSeconds: seek });
+        } else {
+          playerRef.current.loadVideoById(targetTrack.videoId);
+        }
+        playerRef.current.playVideo();
+      } catch {
+        // ignore
+      }
+    }
   }, [currentPlaylistId, trackIndex, currentTime]);
 
   // Global Keyboard Shortcuts (Space: Play/Pause, Left: -10s, Right: +10s, N: Next, P: Prev, A/B/C: Scenes)
@@ -1497,10 +1516,16 @@ export default function Player({
                 <button
                   key={tr.id}
                   onClick={() => {
+                    playlistStatesRef.current[currentPlaylistId] = {
+                      trackIndex: idx,
+                      currentTime: 0,
+                    };
+                    savePlaylistStates();
                     setTrackIndex(idx);
                     setCurrentTime(0);
                     initialSeekTimeRef.current = 0;
                     setIsPlaying(true);
+                    lastLoadedYtVideoId.current = tr.videoId;
                     if (playerRef.current) {
                       try {
                         playerRef.current.unMute();
