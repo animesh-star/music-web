@@ -44,6 +44,7 @@ interface YTPlayer {
   seekTo: (seconds: number, allowSeekAhead?: boolean) => void;
   getCurrentTime: () => number;
   getDuration: () => number;
+  getPlayerState: () => number;
   loadVideoById: (args: string | { videoId: string; startSeconds?: number }) => void;
   cueVideoById: (args: string | { videoId: string; startSeconds?: number }) => void;
   destroy: () => void;
@@ -1013,6 +1014,32 @@ export default function Player({
     };
   }, [isHydrated]);
 
+  // Global Autoplay Resume: unlocks audio on ANY first click/touch/keypress on the site if browser blocked initial autoplay
+  useEffect(() => {
+    let unlocked = false;
+    const unlockAudio = () => {
+      if (unlocked) return;
+      unlocked = true;
+      if (playerRef.current && typeof playerRef.current.playVideo === "function") {
+        try {
+          playerRef.current.playVideo();
+          setIsPlaying(true);
+        } catch {
+          // ignore
+        }
+      }
+      window.removeEventListener("pointerdown", unlockAudio);
+      window.removeEventListener("keydown", unlockAudio);
+    };
+
+    window.addEventListener("pointerdown", unlockAudio);
+    window.addEventListener("keydown", unlockAudio);
+    return () => {
+      window.removeEventListener("pointerdown", unlockAudio);
+      window.removeEventListener("keydown", unlockAudio);
+    };
+  }, []);
+
   // HTML5 Audio element setup & handling (dev only — production uses YouTube)
   useEffect(() => {
     // Skip HTML5 audio in production; YouTube iframe handles everything
@@ -1171,7 +1198,9 @@ export default function Player({
         });
       }
     } else if (playerRef.current) {
-      if (isPlaying) {
+      const state = typeof playerRef.current.getPlayerState === "function" ? playerRef.current.getPlayerState() : -1;
+      const isActuallyPlaying = window.YT && state === window.YT.PlayerState.PLAYING;
+      if (isActuallyPlaying) {
         playerRef.current.pauseVideo();
         setIsPlaying(false);
       } else {
