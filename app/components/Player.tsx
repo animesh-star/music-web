@@ -954,7 +954,7 @@ export default function Player({
       playerRef.current = new window.YT.Player(globalIframeId, {
         videoId: currentTrack.videoId,
         playerVars: {
-          autoplay: 1,
+          autoplay: 0,
           enablejsapi: 1,
           playsinline: 1,
           origin: typeof window !== "undefined" ? window.location.origin : "",
@@ -979,13 +979,11 @@ export default function Player({
               initialSeekTimeRef.current = 0;
             }
             lastLoadedYtVideoId.current = currentTrack.videoId;
-            setIsPlaying(true);
             try {
               event.target.unMute();
               event.target.setVolume(100);
-              event.target.playVideo();
             } catch {
-              // ignore autoplay browser restrictions if un-interacted
+              // ignore
             }
           },
           onStateChange: (event) => {
