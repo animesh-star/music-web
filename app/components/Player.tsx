@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Play, Pause, SkipBack, SkipForward, Disc, Layers, RotateCcw, RotateCw, Heart } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Disc, Layers, RotateCcw, RotateCw, Heart, ListMusic, X, Music } from "lucide-react";
 import { PLAYLISTS, Track, Playlist } from "../data/playlists";
 import { track as trackAnalytics } from "@vercel/analytics";
 
@@ -140,9 +140,9 @@ const ParticleCanvas = React.memo(function ParticleCanvas({
       });
     }
 
-    // Continuously spawn particles for 5.5 seconds (330 frames at 60fps)
+    // Continuously spawn particles for 5.0 seconds (300 frames at 60fps)
     let frameCount = 0;
-    const maxFrames = 330; // 5.5 seconds
+    const maxFrames = 300; // 5.0 seconds
 
     const render = () => {
       ctx.clearRect(0, 0, width, height);
@@ -524,6 +524,8 @@ interface DesktopPlayerProps {
   playlists: Playlist[];
   currentPlaylistId: string;
   onSwitchPlaylist: (playlistId: string) => void;
+  showMusicList: boolean;
+  onToggleMusicList: () => void;
 }
 
 const DesktopPlayer = React.memo(function DesktopPlayer({
@@ -543,6 +545,8 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
   playlists,
   currentPlaylistId,
   onSwitchPlaylist,
+  showMusicList,
+  onToggleMusicList,
 }: DesktopPlayerProps) {
   return (
     <div className="hidden sm:flex items-center gap-4 w-full rounded-full p-3 pr-5 glass-pill transition-all duration-300">
@@ -583,23 +587,36 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
             </div>
           </div>
 
-          {/* Playlist selector dropdown/pill */}
-          <div className="flex items-center gap-1.5 shrink-0 bg-white/10 hover:bg-white/15 px-2.5 py-1 rounded-full text-[11px] font-medium text-white/90 border border-white/10 transition-colors">
-            <Layers className="w-3 h-3 text-white/70" />
-            <select
-              value={currentPlaylistId}
-              onChange={(e) => {
-                onSwitchPlaylist(e.target.value);
-                e.target.blur();
-              }}
-              className="bg-transparent text-white focus:outline-none cursor-pointer text-[11px] font-medium"
+          {/* Playlist selector dropdown & Music List Toggle Button */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex items-center gap-1.5 bg-white/10 hover:bg-white/15 px-2.5 py-1 rounded-full text-[11px] font-medium text-white/90 border border-white/10 transition-colors">
+              <Layers className="w-3 h-3 text-white/70" />
+              <select
+                value={currentPlaylistId}
+                onChange={(e) => {
+                  onSwitchPlaylist(e.target.value);
+                  e.target.blur();
+                }}
+                className="bg-transparent text-white focus:outline-none cursor-pointer text-[11px] font-medium"
+              >
+                {playlists.map((pl) => (
+                  <option key={pl.id} value={pl.id} className="bg-neutral-900 text-white">
+                    {pl.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              onClick={onToggleMusicList}
+              className={`p-1.5 rounded-full border border-white/10 transition-all cursor-pointer ${
+                showMusicList ? "bg-white/25 text-white shadow-[0_0_12px_rgba(255,255,255,0.4)]" : "bg-white/10 hover:bg-white/15 text-white/80 hover:text-white"
+              }`}
+              title="Music List (Tracks)"
+              aria-label="Toggle Music List"
             >
-              {playlists.map((pl) => (
-                <option key={pl.id} value={pl.id} className="bg-neutral-900 text-white">
-                  {pl.name}
-                </option>
-              ))}
-            </select>
+              <ListMusic className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
 
@@ -653,6 +670,8 @@ interface MobilePlayerProps {
   playlists: Playlist[];
   currentPlaylistId: string;
   onSwitchPlaylist: (playlistId: string) => void;
+  showMusicList: boolean;
+  onToggleMusicList: () => void;
 }
 
 const MobilePlayer = React.memo(function MobilePlayer({
@@ -672,6 +691,8 @@ const MobilePlayer = React.memo(function MobilePlayer({
   playlists,
   currentPlaylistId,
   onSwitchPlaylist,
+  showMusicList,
+  onToggleMusicList,
 }: MobilePlayerProps) {
   return (
     <div className="flex flex-col sm:hidden gap-3.5 w-full rounded-[26px] p-4 glass-pill transition-all duration-300">
@@ -707,23 +728,35 @@ const MobilePlayer = React.memo(function MobilePlayer({
             {currentTrack.artist}
           </p>
 
-          {/* Playlist selector on mobile */}
-          <div className="mt-1 flex items-center gap-1 text-[10.5px] text-white/80">
-            <Disc className="w-3 h-3 text-white/60" />
-            <select
-              value={currentPlaylistId}
-              onChange={(e) => {
-                onSwitchPlaylist(e.target.value);
-                e.target.blur();
-              }}
-              className="bg-black/30 text-white rounded-md px-1.5 py-0.5 focus:outline-none text-[10.5px]"
+          {/* Playlist selector & Music List Toggle on mobile */}
+          <div className="mt-1 flex items-center justify-between gap-1 text-[10.5px] text-white/80">
+            <div className="flex items-center gap-1">
+              <Disc className="w-3 h-3 text-white/60" />
+              <select
+                value={currentPlaylistId}
+                onChange={(e) => {
+                  onSwitchPlaylist(e.target.value);
+                  e.target.blur();
+                }}
+                className="bg-black/30 text-white rounded-md px-1.5 py-0.5 focus:outline-none text-[10.5px]"
+              >
+                {playlists.map((pl) => (
+                  <option key={pl.id} value={pl.id} className="bg-neutral-900 text-white">
+                    {pl.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              onClick={onToggleMusicList}
+              className={`px-2 py-0.5 rounded-md border border-white/10 text-[10.5px] font-medium flex items-center gap-1 transition-all ${
+                showMusicList ? "bg-white/25 text-white" : "bg-black/30 hover:bg-black/40 text-white/80"
+              }`}
             >
-              {playlists.map((pl) => (
-                <option key={pl.id} value={pl.id} className="bg-neutral-900 text-white">
-                  {pl.name}
-                </option>
-              ))}
-            </select>
+              <ListMusic className="w-3 h-3" />
+              <span>Music List</span>
+            </button>
           </div>
         </div>
       </div>
@@ -776,6 +809,7 @@ export default function Player({
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(180);
+  const [showMusicList, setShowMusicList] = useState<boolean>(false);
   // In production, skip local audio and go straight to YouTube
   const [useYtFallback, setUseYtFallback] = useState<boolean>(IS_PRODUCTION);
 
@@ -845,6 +879,7 @@ export default function Player({
     });
     setCurrentTime(0);
     initialSeekTimeRef.current = 0;
+    setIsPlaying(true);
   }, [currentPlaylist.tracks.length, currentPlaylistId]);
 
   const handlePrevTrack = useCallback(() => {
@@ -858,6 +893,7 @@ export default function Player({
     });
     setCurrentTime(0);
     initialSeekTimeRef.current = 0;
+    setIsPlaying(true);
   }, [currentPlaylist.tracks.length, currentPlaylistId]);
 
   // Setup single YouTube player instance safely as fallback
@@ -900,7 +936,9 @@ export default function Player({
             }
             if (initialSeekTimeRef.current > 0) {
               event.target.seekTo(initialSeekTimeRef.current, true);
+              initialSeekTimeRef.current = 0;
             }
+            lastLoadedYtVideoId.current = currentTrack.videoId;
           },
           onStateChange: (event) => {
             if (isCancelled) return;
@@ -1176,6 +1214,10 @@ export default function Player({
       if (e.code === "Space") {
         e.preventDefault();
         handlePlayPause();
+      } else if ((keyLower === "r" || e.code === "KeyR") && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        handleSeek(0);
+        setIsPlaying(true);
       } else if (e.code === "ArrowLeft") {
         e.preventDefault();
         handleSkipBack10();
@@ -1240,6 +1282,9 @@ export default function Player({
       // ONLY trigger particle celebration when ADDING to favorites!
       if (willBeFav) {
         setBurstTrigger({ x, y, id: Date.now() });
+        setTimeout(() => {
+          setBurstTrigger(null);
+        }, 5000);
       } else {
         setBurstTrigger(null);
       }
@@ -1259,6 +1304,70 @@ export default function Player({
         className="fixed -top-[9999px] -left-[9999px] w-1 h-1 opacity-0 pointer-events-none"
       />
 
+      {/* Floating Music List Drawer Popover */}
+      {showMusicList && (
+        <div className="absolute bottom-full mb-3 inset-x-0 bg-neutral-900/90 backdrop-blur-xl border border-white/15 rounded-3xl p-4 shadow-2xl z-50 max-h-80 overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
+            <div className="flex items-center gap-2">
+              <ListMusic className="w-4 h-4 text-rose-400" />
+              <span className="text-sm font-semibold text-white tracking-wide">
+                {currentPlaylist.name} • Music List ({currentPlaylist.tracks.length} Songs)
+              </span>
+            </div>
+            <button
+              onClick={() => setShowMusicList(false)}
+              className="p-1 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="space-y-1">
+            {currentPlaylist.tracks.map((tr, idx) => {
+              const isActive = idx === trackIndex;
+              return (
+                <button
+                  key={tr.id}
+                  onClick={() => {
+                    setTrackIndex(idx);
+                    setCurrentTime(0);
+                    initialSeekTimeRef.current = 0;
+                    setIsPlaying(true);
+                  }}
+                  className={`w-full flex items-center justify-between p-2 rounded-xl text-left transition-all ${
+                    isActive
+                      ? "bg-white/20 text-white font-medium shadow-sm"
+                      : "hover:bg-white/10 text-white/70 hover:text-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className={`text-xs font-mono w-5 text-center ${isActive ? "text-rose-400 font-bold" : "text-white/40"}`}>
+                      {isActive ? (
+                        <Music className="w-3.5 h-3.5 animate-pulse text-rose-400 inline" />
+                      ) : (
+                        idx + 1
+                      )}
+                    </span>
+                    <div className="min-w-0">
+                      <p className={`text-xs truncate ${isActive ? "text-white font-semibold" : "text-white/90"}`}>
+                        {tr.title}
+                      </p>
+                      <p className="text-[11px] text-white/50 truncate font-normal">
+                        {tr.artist} {tr.film ? `• ${tr.film}` : ""}
+                      </p>
+                    </div>
+                  </div>
+
+                  <span className="text-[11px] font-mono text-white/40 shrink-0 ml-2">
+                    {formatTime(tr.duration)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Desktop Player */}
       <DesktopPlayer
         currentTrack={currentTrack}
@@ -1277,6 +1386,8 @@ export default function Player({
         playlists={PLAYLISTS}
         currentPlaylistId={currentPlaylistId}
         onSwitchPlaylist={handleSwitchPlaylist}
+        showMusicList={showMusicList}
+        onToggleMusicList={() => setShowMusicList((prev) => !prev)}
       />
 
       {/* Mobile Player */}
@@ -1297,6 +1408,8 @@ export default function Player({
         playlists={PLAYLISTS}
         currentPlaylistId={currentPlaylistId}
         onSwitchPlaylist={handleSwitchPlaylist}
+        showMusicList={showMusicList}
+        onToggleMusicList={() => setShowMusicList((prev) => !prev)}
       />
     </div>
   );
