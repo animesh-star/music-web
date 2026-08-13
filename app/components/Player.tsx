@@ -953,6 +953,9 @@ export default function Player({
         videoId: currentTrack.videoId,
         playerVars: {
           autoplay: 1,
+          enablejsapi: 1,
+          playsinline: 1,
+          origin: typeof window !== "undefined" ? window.location.origin : "",
           start: startSec > 0 ? startSec : 0,
           controls: 0,
           disablekb: 1,
@@ -1398,10 +1401,10 @@ export default function Player({
       {/* Loving Heart Burst Particles (Appears for 5.5s on favorite click only) */}
       <ParticleCanvas burstTrigger={burstTrigger} />
 
-      {/* Hidden single persistent YouTube iframe element */}
+      {/* Hidden single persistent YouTube iframe element (positioned in-viewport so browser never throttles audio) */}
       <div
         id={globalIframeId}
-        className="fixed -top-[9999px] -left-[9999px] w-1 h-1 opacity-0 pointer-events-none"
+        className="fixed bottom-0 right-0 w-px h-px opacity-[0.001] pointer-events-none z-[-1]"
       />
 
       {/* Floating Music List Drawer Popover */}
