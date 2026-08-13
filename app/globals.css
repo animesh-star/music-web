@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+@theme {
+  --color-accent: #f43f5e;
+  --color-accent-hover: #e11d48;
+  --color-accent-glow: rgba(244, 63, 94, 0.4);
+  --color-glass-border: rgba(255, 255, 255, 0.1);
+  --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-blink {
+  animation: blink 1s step-start infinite;
+}
+
+.animate-spin-custom {
+  animation: spin 8s linear infinite;
+}
+
+/* Glass styling recipe as requested */
+.glass-pill {
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.055) 100%);
+  backdrop-filter: blur(40px) saturate(1.7);
+  -webkit-backdrop-filter: blur(40px) saturate(1.7);
+  box-shadow: 0 16px 48px -12px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.glass-box {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 100%);
+  backdrop-filter: blur(24px) saturate(1.5);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
+  box-shadow: 0 12px 36px -8px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+/* Default hero background base utility */
+.hero-bg {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transition: background-image 0.6s ease-in-out;
+}
+
+/* Scene specific background definitions */
+.scene-a {
+  background-image: url('/bg/scene-a-wide.png');
+}
+@media (orientation: portrait) {
+  .scene-a {
+    background-image: url('/bg/scene-a-tall.png');
+  }
+}
+
+.scene-b {
+  background-image: url('/bg/scene-b-wide.png');
+}
+@media (orientation: portrait) {
+  .scene-b {
+    background-image: url('/bg/scene-b-tall.png');
+  }
+}
+
+.scene-c {
+  background-image: url('/bg/scene-c-wide.png');
+}
+@media (orientation: portrait) {
+  .scene-c {
+    background-image: url('/bg/scene-c-tall.png');
+  }
+}
+
+/* Custom scrollbars & smooth interactions */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  color: #ffffff;
+  background: #050508;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow-x: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+
+
