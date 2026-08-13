@@ -877,6 +877,28 @@ export default function Player({
     }
   }, [currentPlaylist, currentPlaylistId, onSceneChange]);
 
+  // Flush exact playback position to localStorage on browser refresh / page unload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const activeTime = audioRef.current ? audioRef.current.currentTime : currentTime;
+      if (isFinite(activeTime) && activeTime > 0) {
+        playlistStatesRef.current[currentPlaylistId] = {
+          trackIndex,
+          currentTime: activeTime,
+        };
+        try {
+          localStorage.setItem("phoenix_playlist_states", JSON.stringify(playlistStatesRef.current));
+          localStorage.setItem("phoenix_active_playlist_id", currentPlaylistId);
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [currentPlaylistId, trackIndex, currentTime]);
+
   const handleNextTrack = useCallback(() => {
     setTrackIndex((prev) => {
       const nextIdx = (prev + 1) % currentPlaylist.tracks.length;
@@ -925,10 +947,13 @@ export default function Player({
         }
       }
 
+      const startSec = Math.floor(initialSeekTimeRef.current || 0);
+
       playerRef.current = new window.YT.Player(globalIframeId, {
         videoId: currentTrack.videoId,
         playerVars: {
           autoplay: 1,
+          start: startSec > 0 ? startSec : 0,
           controls: 0,
           disablekb: 1,
           fs: 0,
@@ -1107,6 +1132,13 @@ export default function Player({
               trackIndex,
               currentTime: t,
             };
+            if (typeof window !== "undefined") {
+              try {
+                localStorage.setItem("phoenix_playlist_states", JSON.stringify(playlistStatesRef.current));
+              } catch {
+                // ignore
+              }
+            }
           }
           if (d > 0 && isFinite(d) && d < 86400) setDuration(d);
         }
