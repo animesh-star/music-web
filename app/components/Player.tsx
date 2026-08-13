@@ -44,8 +44,8 @@ interface YTPlayer {
   seekTo: (seconds: number, allowSeekAhead?: boolean) => void;
   getCurrentTime: () => number;
   getDuration: () => number;
-  loadVideoById: (videoId: string) => void;
-  cueVideoById: (videoId: string) => void;
+  loadVideoById: (args: string | { videoId: string; startSeconds?: number }) => void;
+  cueVideoById: (args: string | { videoId: string; startSeconds?: number }) => void;
   destroy: () => void;
 }
 
