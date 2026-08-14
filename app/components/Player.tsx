@@ -854,7 +854,7 @@ export default function Player({
 }) {
   const [currentPlaylistId, setCurrentPlaylistId] = useState<string>("lofi-monsoon");
   const [trackIndex, setTrackIndex] = useState<number>(0);
-  const [isPlaying, setIsPlaying] = useState<boolean>(true);
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(180);
   const [showMusicList, setShowMusicList] = useState<boolean>(false);
@@ -863,9 +863,6 @@ export default function Player({
   // Spotify integration state
   const [playlists, setPlaylists] = useState<Playlist[]>(PLAYLISTS);
   const [spotifyLoggedIn, setSpotifyLoggedIn] = useState<boolean>(false);
-  // Autoplay: always assume muted on first load; unlock on first user interaction
-  const [needsUnlock, setNeedsUnlock] = useState<boolean>(true);
-  const needsUnlockRef = useRef<boolean>(true);
 
   // Helper to read cookies on client side
   const getCookie = useCallback((name: string): string | null => {
@@ -902,7 +899,7 @@ export default function Player({
   });
 
   const initialSeekTimeRef = useRef<number>(0);
-  const userPausedRef = useRef<boolean>(false);
+  const userPausedRef = useRef<boolean>(true);
 
   // Hydrate scene & position memory from localStorage on client load
   useEffect(() => {
@@ -1176,27 +1173,13 @@ export default function Player({
             }
             lastLoadedYtVideoId.current = currentTrack.videoId;
 
-            // Try to unmute immediately — works if user has prior browser engagement with site
+            // Setup player unmuted but do not play automatically on load
             if (useYtFallbackRef.current) {
-              userPausedRef.current = false;
-              setIsPlaying(true);
               try {
                 event.target.unMute();
                 event.target.setVolume(100);
-                event.target.playVideo();
+                event.target.pauseVideo();
               } catch { /* ignore */ }
-              // Check 800ms later if we're actually unmuted
-              setTimeout(() => {
-                try {
-                  const stillMuted = !!(event.target.isMuted && event.target.isMuted());
-                  if (!stillMuted) {
-                    // Browser allowed unmuted autoplay — clear the badge
-                    needsUnlockRef.current = false;
-                    setNeedsUnlock(false);
-                  }
-                  // If stillMuted, badge stays visible — user needs to click
-                } catch { /* ignore */ }
-              }, 800);
             } else {
               try {
                 event.target.mute();
@@ -1277,64 +1260,7 @@ export default function Player({
     };
   }, [isHydrated]);
 
-  // Global Autoplay Resume: unlocks audio on ANY first click/touch/keypress on the site if browser blocked initial autoplay
-  useEffect(() => {
-    const unlockAudio = () => {
-      if (!useYtFallbackRef.current && audioRef.current) {
-        if (audioRef.current.paused) {
-          audioRef.current.play().then(() => {
-            setIsPlaying(true);
-            window.removeEventListener("pointerdown", unlockAudio);
-            window.removeEventListener("touchstart", unlockAudio);
-            window.removeEventListener("click", unlockAudio);
-            window.removeEventListener("keydown", unlockAudio);
-          }).catch(() => {
-            // ignore
-          });
-        }
-      } else if (useYtFallbackRef.current && playerRef.current && typeof playerRef.current.playVideo === "function") {
-        try {
-          playerRef.current.unMute();
-          playerRef.current.setVolume(100);
-          playerRef.current.playVideo();
-          setIsPlaying(true);
-          // Only remove listener once player has successfully unlocked
-          window.removeEventListener("pointerdown", unlockAudio);
-          window.removeEventListener("touchstart", unlockAudio);
-          window.removeEventListener("click", unlockAudio);
-          window.removeEventListener("keydown", unlockAudio);
-        } catch {
-          // ignore
-        }
-      }
-    };
 
-    window.addEventListener("pointerdown", unlockAudio);
-    window.addEventListener("touchstart", unlockAudio, { passive: true });
-    window.addEventListener("click", unlockAudio);
-    window.addEventListener("keydown", unlockAudio);
-    return () => {
-      window.removeEventListener("pointerdown", unlockAudio);
-      window.removeEventListener("touchstart", unlockAudio);
-      window.removeEventListener("click", unlockAudio);
-      window.removeEventListener("keydown", unlockAudio);
-    };
-  }, []);
-
-// Auto-start playback after page refresh/hydration
-useEffect(() => {
-  if (!isHydrated) return;
-  // Trigger playback based on active player
-  if (useYtFallbackRef.current && playerRef.current) {
-    try {
-      playerRef.current.unMute();
-      playerRef.current.setVolume(100);
-      playerRef.current.playVideo();
-    } catch {}
-  } else if (audioRef.current) {
-    audioRef.current.play().catch(() => {});
-  }
-}, [isHydrated]);
 
   // Synchronize state when switching between HTML5 audio and YouTube fallback
   useEffect(() => {
@@ -1746,35 +1672,7 @@ useEffect(() => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handlePlayPause, handleSkipBack10, handleSkipForward10, handleNextTrack, handlePrevTrack, handleSwitchPlaylist]);
 
-  // Unlock audio on first user interaction (click/touch/key anywhere on page)
-  useEffect(() => {
-    if (!needsUnlock) return;
 
-    const unlock = () => {
-      if (!needsUnlockRef.current) return;
-      try {
-        if (playerRef.current) {
-          playerRef.current.unMute();
-          playerRef.current.setVolume(100);
-          playerRef.current.playVideo();
-        }
-      } catch { /* ignore */ }
-      needsUnlockRef.current = false;
-      setNeedsUnlock(false);
-      window.removeEventListener('click', unlock, true);
-      window.removeEventListener('touchstart', unlock, true);
-      window.removeEventListener('keydown', unlock, true);
-    };
-
-    window.addEventListener('click', unlock, true);
-    window.addEventListener('touchstart', unlock, true);
-    window.addEventListener('keydown', unlock, true);
-    return () => {
-      window.removeEventListener('click', unlock, true);
-      window.removeEventListener('touchstart', unlock, true);
-      window.removeEventListener('keydown', unlock, true);
-    };
-  }, [needsUnlock]);
 
   // Close Music List when clicking anywhere outside on the site
   useEffect(() => {
@@ -1835,33 +1733,7 @@ useEffect(() => {
 
   return (
     <div className="w-full max-w-xl mx-auto relative">
-      {/* Sound unlock badge — always shown on first load until user interacts, fixed at bottom for safety on mobile/desktop */}
-      {needsUnlock && (
-        <div
-          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-2 px-5 py-2.5 rounded-full cursor-pointer select-none active:scale-95 transition-transform"
-          style={{
-            background: 'rgba(15, 15, 20, 0.90)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
-            border: '1px solid rgba(255,255,255,0.2)',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-          }}
-          onClick={() => {
-            try {
-              if (playerRef.current) {
-                playerRef.current.unMute();
-                playerRef.current.setVolume(100);
-                playerRef.current.playVideo();
-              }
-            } catch { /* ignore */ }
-            needsUnlockRef.current = false;
-            setNeedsUnlock(false);
-          }}
-        >
-          <span className="text-lg">🔇</span>
-          <span className="text-white text-[13px] font-semibold tracking-wide">Tap anywhere for sound</span>
-        </div>
-      )}
+
       {/* Loving Heart Burst Particles (Appears for 5.5s on favorite click only) */}
       <ParticleCanvas burstTrigger={burstTrigger} />
 
