@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Play, Pause, SkipBack, SkipForward, Disc, Layers, RotateCcw, RotateCw, Heart, ListMusic, X, Music } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Disc, Layers, RotateCcw, RotateCw, Heart, ListMusic, X, Music, Shuffle, Repeat, Repeat1, Mic } from "lucide-react";
 import { PLAYLISTS, Track, Playlist } from "../data/playlists";
 import { track as trackAnalytics } from "@vercel/analytics";
 
@@ -37,6 +37,14 @@ declare global {
         BUFFERING: number;
         CUED: number;
       };
+    };
+    onSpotifyWebPlaybackSDKReady?: () => void;
+    Spotify?: {
+      Player: new (options: {
+        name: string;
+        getOAuthToken: (cb: (token: string) => void) => void;
+        volume: number;
+      }) => any;
     };
   }
 }
@@ -385,6 +393,10 @@ interface TransportProps {
   onSkipBack10: () => void;
   onSkipForward10: () => void;
   isMobile?: boolean;
+  isShuffle: boolean;
+  onToggleShuffle: () => void;
+  repeatMode: 0 | 1 | 2; // 0: Off, 1: All, 2: One
+  onToggleRepeat: () => void;
 }
 
 const TransportControls = React.memo(function TransportControls({
@@ -396,6 +408,10 @@ const TransportControls = React.memo(function TransportControls({
   onSkipBack10,
   onSkipForward10,
   isMobile = false,
+  isShuffle,
+  onToggleShuffle,
+  repeatMode,
+  onToggleRepeat,
 }: TransportProps) {
   const handleClick = (cb: () => void) => (e: React.MouseEvent<HTMLButtonElement>) => {
     e.currentTarget.blur();
@@ -404,12 +420,17 @@ const TransportControls = React.memo(function TransportControls({
 
   if (isMobile) {
     return (
-      <div className="flex items-center justify-center gap-3">
+      <div className="flex items-center justify-center gap-2">
+        <button
+          onClick={handleClick(onToggleShuffle)}
+          className={`min-w-[32px] min-h-[32px] flex items-center justify-center transition-colors active:scale-95 cursor-pointer ${isShuffle ? 'text-[#1DB954]' : 'text-white/40 hover:text-white/70'}`}
+        >
+          <Shuffle className="w-4 h-4" />
+        </button>
+
         <button
           onClick={handleClick(onPrev)}
           className="min-w-[36px] min-h-[36px] flex items-center justify-center text-white/80 hover:text-white transition-colors active:scale-95 cursor-pointer"
-          aria-label="Previous track"
-          title="Previous Track (P)"
         >
           <SkipBack className="w-5 h-5" />
         </button>
@@ -418,8 +439,6 @@ const TransportControls = React.memo(function TransportControls({
         <button
           onClick={handleClick(onSkipBack10)}
           className="min-w-[36px] min-h-[36px] flex items-center justify-center text-white/70 hover:text-white transition-colors active:scale-95 cursor-pointer relative"
-          aria-label="Rewind 10 seconds"
-          title="Rewind 10s (Left Arrow)"
         >
           <RotateCcw className="w-4 h-4" />
           <span className="absolute -bottom-1 text-[8.5px] font-mono font-bold text-white/60">10s</span>
@@ -432,9 +451,7 @@ const TransportControls = React.memo(function TransportControls({
             background: `linear-gradient(135deg, ${accentColor} 0%, rgba(255,255,255,0.2) 100%)`,
             boxShadow: `0 8px 24px -4px ${accentColor}80`,
           }}
-          className="w-[52px] h-[52px] rounded-full flex items-center justify-center ring-1 ring-white/25 active:scale-95 transition-transform cursor-pointer"
-          aria-label={isPlaying ? "Pause" : "Play"}
-          title="Play/Pause (Spacebar)"
+          className="w-[52px] h-[52px] rounded-full flex items-center justify-center ring-1 ring-white/25 active:scale-95 transition-transform cursor-pointer mx-1"
         >
           {isPlaying ? (
             <Pause className="w-6 h-6 text-white fill-white" />
@@ -447,8 +464,6 @@ const TransportControls = React.memo(function TransportControls({
         <button
           onClick={handleClick(onSkipForward10)}
           className="min-w-[36px] min-h-[36px] flex items-center justify-center text-white/70 hover:text-white transition-colors active:scale-95 cursor-pointer relative"
-          aria-label="Forward 10 seconds"
-          title="Fast Forward 10s (Right Arrow)"
         >
           <RotateCw className="w-4 h-4" />
           <span className="absolute -bottom-1 text-[8.5px] font-mono font-bold text-white/60">10s</span>
@@ -457,10 +472,15 @@ const TransportControls = React.memo(function TransportControls({
         <button
           onClick={handleClick(onNext)}
           className="min-w-[36px] min-h-[36px] flex items-center justify-center text-white/80 hover:text-white transition-colors active:scale-95 cursor-pointer"
-          aria-label="Next track"
-          title="Next Track (N)"
         >
           <SkipForward className="w-5 h-5" />
+        </button>
+
+        <button
+          onClick={handleClick(onToggleRepeat)}
+          className={`min-w-[32px] min-h-[32px] flex items-center justify-center transition-colors active:scale-95 cursor-pointer ${repeatMode !== 0 ? 'text-[#1DB954]' : 'text-white/40 hover:text-white/70'}`}
+        >
+          {repeatMode === 2 ? <Repeat1 className="w-4 h-4" /> : <Repeat className="w-4 h-4" />}
         </button>
       </div>
     );
@@ -468,6 +488,15 @@ const TransportControls = React.memo(function TransportControls({
 
   return (
     <div className="flex items-center gap-1.5">
+      <button
+        onClick={handleClick(onToggleShuffle)}
+        className={`p-1.5 transition-colors active:scale-90 cursor-pointer ${isShuffle ? 'text-[#1DB954]' : 'text-white/40 hover:text-white/70'}`}
+        aria-label="Toggle Shuffle"
+        title="Shuffle"
+      >
+        <Shuffle className="w-3.5 h-3.5" />
+      </button>
+
       <button
         onClick={handleClick(onPrev)}
         className="p-1.5 text-white/70 hover:text-white transition-colors active:scale-90 cursor-pointer"
@@ -522,6 +551,15 @@ const TransportControls = React.memo(function TransportControls({
       >
         <SkipForward className="w-3.5 h-3.5" />
       </button>
+
+      <button
+        onClick={handleClick(onToggleRepeat)}
+        className={`p-1.5 transition-colors active:scale-90 cursor-pointer ${repeatMode !== 0 ? 'text-[#1DB954]' : 'text-white/40 hover:text-white/70'}`}
+        aria-label="Toggle Repeat"
+        title={repeatMode === 2 ? "Repeat One" : "Repeat All"}
+      >
+        {repeatMode === 2 ? <Repeat1 className="w-3.5 h-3.5" /> : <Repeat className="w-3.5 h-3.5" />}
+      </button>
     </div>
   );
 });
@@ -547,6 +585,20 @@ interface DesktopPlayerProps {
   showMusicList: boolean;
   onToggleMusicList: () => void;
   spotifyLoggedIn?: boolean;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  onSearch: (e: React.FormEvent) => void;
+  isSearching: boolean;
+  searchResults: Track[];
+  onPlaySearchResult: (track: Track) => void;
+  isLoadingPlaylist?: boolean;
+  isShuffle: boolean;
+  onToggleShuffle: () => void;
+  repeatMode: 0 | 1 | 2;
+  onToggleRepeat: () => void;
+  showLyrics: boolean;
+  onToggleLyrics: () => void;
+  lyrics: {time: number, text: string}[];
 }
 
 const DesktopPlayer = React.memo(function DesktopPlayer({
@@ -569,10 +621,25 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
   showMusicList,
   onToggleMusicList,
   spotifyLoggedIn,
+  searchQuery,
+  setSearchQuery,
+  onSearch,
+  isSearching,
+  searchResults,
+  onPlaySearchResult,
+  isLoadingPlaylist,
+  isShuffle,
+  onToggleShuffle,
+  repeatMode,
+  onToggleRepeat,
+  showLyrics,
+  onToggleLyrics,
+  lyrics,
 }: DesktopPlayerProps) {
   return (
-    <div
-      className="hidden sm:flex items-center gap-4 w-full rounded-full p-3 pr-5 glass-pill transition-all duration-300"
+    <>
+      <div
+        className="hidden sm:flex items-center gap-4 w-full rounded-full p-3 pr-5 glass-pill transition-all duration-300"
       style={{
         backdropFilter: 'blur(72px) saturate(2) brightness(1.1)',
         WebkitBackdropFilter: 'blur(72px) saturate(2) brightness(1.1)',
@@ -642,6 +709,17 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
             </div>
 
             <button
+              onClick={onToggleLyrics}
+              className={`p-1.5 rounded-full border border-white/10 transition-all cursor-pointer ${
+                showLyrics ? "bg-[#1DB954] text-black shadow-[0_0_12px_rgba(29,185,84,0.6)]" : "bg-white/10 hover:bg-white/15 text-white/80 hover:text-white"
+              }`}
+              title="Live Synced Lyrics"
+              aria-label="Toggle Lyrics"
+            >
+              <Mic className="w-3.5 h-3.5" />
+            </button>
+
+            <button
               onClick={onToggleMusicList}
               className={`p-1.5 rounded-full border border-white/10 transition-all cursor-pointer ${
                 showMusicList ? "bg-white/25 text-white shadow-[0_0_12px_rgba(255,255,255,0.4)]" : "bg-white/10 hover:bg-white/15 text-white/80 hover:text-white"
@@ -680,9 +758,95 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
           onSkipBack10={onSkipBack10}
           onSkipForward10={onSkipForward10}
           isMobile={false}
+          isShuffle={isShuffle}
+          onToggleShuffle={onToggleShuffle}
+          repeatMode={repeatMode}
+          onToggleRepeat={onToggleRepeat}
         />
       </div>
     </div>
+    {/* Fullscreen Lyrics Overlay */}
+    {showLyrics && (
+      <div className="absolute inset-0 z-50 bg-black/85 backdrop-blur-3xl rounded-[32px] sm:rounded-[40px] overflow-hidden flex flex-col items-center justify-center p-6 transition-all duration-500 ease-out">
+         <button onClick={onToggleLyrics} className="absolute top-6 right-6 text-white/50 hover:text-white cursor-pointer z-50 p-2 bg-black/20 rounded-full hover:bg-white/10 transition-colors">
+           <X className="w-6 h-6" />
+         </button>
+         <div 
+            className="w-full h-full max-w-2xl overflow-y-auto no-scrollbar flex flex-col gap-6 pt-[40vh] pb-[40vh] text-center scroll-smooth" 
+            style={{ maskImage: "linear-gradient(to bottom, transparent, black 15%, black 85%, transparent)" }}
+            ref={(el) => {
+               if (el) {
+                 const activeEl = el.querySelector('.active-lyric');
+                 if (activeEl) {
+                    activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                 }
+               }
+            }}
+         >
+           {lyrics.length > 0 ? lyrics.map((line, i) => {
+             const isActive = currentTime >= line.time && (i === lyrics.length - 1 || currentTime < lyrics[i+1].time);
+             const isPast = currentTime >= line.time;
+             return (
+               <p 
+                 key={i} 
+                 className={`text-2xl md:text-4xl font-bold transition-all duration-500 cursor-pointer ${isActive ? "active-lyric text-white scale-110 drop-shadow-[0_0_15px_rgba(255,255,255,0.4)]" : isPast ? "text-white/40" : "text-white/20 blur-[1px]"}`}
+               >
+                 {line.text || "♪"}
+               </p>
+             )
+           }) : (
+             <div className="flex flex-col items-center justify-center h-full gap-4 text-white/50 animate-pulse">
+               <Mic className="w-12 h-12 mb-2 opacity-20" />
+               <p className="text-xl">Searching LRCLIB for lyrics...</p>
+             </div>
+           )}
+         </div>
+      </div>
+    )}
+    
+    {/* Global Search Bar */}
+    <div className="mt-3 w-full max-w-xl mx-auto relative">
+      <form onSubmit={onSearch} className="relative flex items-center">
+        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50 pointer-events-none">
+           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        </div>
+        <input 
+          type="text" 
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search Spotify for any song..." 
+          className="w-full bg-black/40 border border-white/10 rounded-full py-2 pl-9 pr-4 text-xs text-white placeholder:text-white/50 focus:outline-none focus:border-white/30 transition-all backdrop-blur-md"
+        />
+        <button type="submit" className="hidden">Search</button>
+      </form>
+      {searchResults.length > 0 && (
+        <div className="absolute top-full mt-2 w-full max-w-xl bg-neutral-900/95 backdrop-blur-xl border border-white/15 rounded-2xl shadow-2xl z-[70] max-h-60 overflow-y-auto p-2">
+           <div className="flex justify-between items-center px-2 pb-2 mb-2 border-b border-white/10">
+             <span className="text-xs text-white/70 font-semibold">Search Results</span>
+             <button type="button" onClick={() => setSearchQuery("")} className="text-white/50 hover:text-white cursor-pointer p-1">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+             </button>
+           </div>
+           <div className="flex flex-col gap-1">
+             {searchResults.map((tr) => (
+               <button 
+                 key={tr.id}
+                 onClick={() => onPlaySearchResult(tr)}
+                 type="button"
+                 className="flex items-center justify-between text-left p-2 rounded-xl hover:bg-white/10 transition-colors cursor-pointer"
+               >
+                 <div className="min-w-0">
+                    <p className="text-xs text-white font-medium truncate">{tr.title}</p>
+                    <p className="text-[10px] text-white/50 truncate">{tr.artist}</p>
+                 </div>
+                 {isSearching && <span className="text-[10px] text-white/50">...</span>}
+               </button>
+             ))}
+           </div>
+        </div>
+      )}
+    </div>
+    </>
   );
 });
 
@@ -707,6 +871,20 @@ interface MobilePlayerProps {
   showMusicList: boolean;
   onToggleMusicList: () => void;
   spotifyLoggedIn?: boolean;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  onSearch: (e: React.FormEvent) => void;
+  isSearching: boolean;
+  searchResults: Track[];
+  onPlaySearchResult: (track: Track) => void;
+  isLoadingPlaylist?: boolean;
+  isShuffle: boolean;
+  onToggleShuffle: () => void;
+  repeatMode: 0 | 1 | 2;
+  onToggleRepeat: () => void;
+  showLyrics: boolean;
+  onToggleLyrics: () => void;
+  lyrics: {time: number, text: string}[];
 }
 
 const MobilePlayer = React.memo(function MobilePlayer({
@@ -729,10 +907,25 @@ const MobilePlayer = React.memo(function MobilePlayer({
   showMusicList,
   onToggleMusicList,
   spotifyLoggedIn,
+  searchQuery,
+  setSearchQuery,
+  onSearch,
+  isSearching,
+  searchResults,
+  onPlaySearchResult,
+  isLoadingPlaylist,
+  isShuffle,
+  onToggleShuffle,
+  repeatMode,
+  onToggleRepeat,
+  showLyrics,
+  onToggleLyrics,
+  lyrics,
 }: MobilePlayerProps) {
   return (
-    <div
-      className="flex flex-col sm:hidden gap-3.5 w-full rounded-[26px] p-4 glass-pill transition-all duration-300"
+    <>
+      <div
+        className="flex flex-col sm:hidden gap-3.5 w-full rounded-[26px] p-4 glass-pill transition-all duration-300"
       style={{
         backdropFilter: 'blur(72px) saturate(2) brightness(1.1)',
         WebkitBackdropFilter: 'blur(72px) saturate(2) brightness(1.1)',
@@ -796,15 +989,28 @@ const MobilePlayer = React.memo(function MobilePlayer({
               </select>
             </div>
 
-            <button
-              onClick={onToggleMusicList}
-              className={`px-2 py-0.5 rounded-md border border-white/10 text-[10.5px] font-medium flex items-center gap-1 transition-all ${
-                showMusicList ? "bg-white/25 text-white" : "bg-black/30 hover:bg-black/40 text-white/80"
-              }`}
-            >
-              <ListMusic className="w-3 h-3" />
-              <span>Music List</span>
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={onToggleLyrics}
+                className={`px-2 py-0.5 rounded-md border border-white/10 text-[10.5px] font-medium flex items-center gap-1 transition-all ${
+                  showLyrics ? "bg-[#1DB954] text-black shadow-[0_0_10px_rgba(29,185,84,0.5)]" : "bg-black/30 hover:bg-black/40 text-white/80"
+                }`}
+                title="Live Lyrics"
+              >
+                <Mic className="w-3 h-3" />
+                <span>Lyrics</span>
+              </button>
+
+              <button
+                onClick={onToggleMusicList}
+                className={`px-2 py-0.5 rounded-md border border-white/10 text-[10.5px] font-medium flex items-center gap-1 transition-all ${
+                  showMusicList ? "bg-white/25 text-white" : "bg-black/30 hover:bg-black/40 text-white/80"
+                }`}
+              >
+                <ListMusic className="w-3 h-3" />
+                <span>Music List</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -836,13 +1042,98 @@ const MobilePlayer = React.memo(function MobilePlayer({
             onSkipBack10={onSkipBack10}
             onSkipForward10={onSkipForward10}
             isMobile={true}
+            isShuffle={isShuffle}
+            onToggleShuffle={onToggleShuffle}
+            repeatMode={repeatMode}
+            onToggleRepeat={onToggleRepeat}
           />
         </div>
 
         {/* Spacer for symmetry */}
         <div className="w-4" />
       </div>
+
+    {/* Fullscreen Lyrics Overlay */}
+    {showLyrics && (
+      <div className="absolute inset-0 z-50 bg-black/85 backdrop-blur-3xl rounded-[32px] sm:rounded-[40px] overflow-hidden flex flex-col items-center justify-center p-6 transition-all duration-500 ease-out">
+         <button onClick={onToggleLyrics} className="absolute top-6 right-6 text-white/50 hover:text-white cursor-pointer z-50 p-2 bg-black/20 rounded-full hover:bg-white/10 transition-colors">
+           <X className="w-6 h-6" />
+         </button>
+         <div 
+            className="w-full h-full max-w-2xl overflow-y-auto no-scrollbar flex flex-col gap-6 pt-[40vh] pb-[40vh] text-center scroll-smooth" 
+            style={{ maskImage: "linear-gradient(to bottom, transparent, black 15%, black 85%, transparent)" }}
+            ref={(el) => {
+               if (el) {
+                 const activeEl = el.querySelector('.active-lyric');
+                 if (activeEl) {
+                    activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                 }
+               }
+            }}
+         >
+           {lyrics.length > 0 ? lyrics.map((line, i) => {
+             const isActive = currentTime >= line.time && (i === lyrics.length - 1 || currentTime < lyrics[i+1].time);
+             const isPast = currentTime >= line.time;
+             return (
+               <p 
+                 key={i} 
+                 className={`text-2xl md:text-4xl font-bold transition-all duration-500 cursor-pointer ${isActive ? "active-lyric text-white scale-110 drop-shadow-[0_0_15px_rgba(255,255,255,0.4)]" : isPast ? "text-white/40" : "text-white/20 blur-[1px]"}`}
+               >
+                 {line.text || "♪"}
+               </p>
+             )
+           }) : (
+             <div className="flex flex-col items-center justify-center h-full gap-4 text-white/50 animate-pulse">
+               <Mic className="w-12 h-12 mb-2 opacity-20" />
+               <p className="text-xl">Searching LRCLIB for lyrics...</p>
+             </div>
+           )}
+         </div>
+      </div>
+    )}
+    
+      {/* Mobile Global Search Bar */}
+      <div className="mt-1 w-full relative">
+        <form onSubmit={onSearch} className="relative flex items-center">
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50 pointer-events-none">
+             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          </div>
+          <input 
+            type="text" 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search Spotify..." 
+            className="w-full bg-black/30 border border-white/5 rounded-full py-2 pl-9 pr-4 text-xs text-white placeholder:text-white/50 focus:outline-none focus:border-white/20 transition-all"
+          />
+        </form>
+        {searchResults.length > 0 && (
+          <div className="absolute bottom-full mb-2 w-full bg-neutral-900/95 backdrop-blur-xl border border-white/15 rounded-2xl shadow-2xl z-[70] max-h-60 overflow-y-auto p-2">
+             <div className="flex justify-between items-center px-2 pb-2 mb-2 border-b border-white/10">
+               <span className="text-xs text-white/70 font-semibold">Search Results</span>
+               <button type="button" onClick={() => setSearchQuery("")} className="text-white/50 hover:text-white cursor-pointer p-1">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+               </button>
+             </div>
+             <div className="flex flex-col gap-1">
+               {searchResults.map((tr) => (
+                 <button 
+                   key={tr.id}
+                   type="button"
+                   onClick={() => onPlaySearchResult(tr)}
+                   className="flex items-center justify-between text-left p-2 rounded-xl hover:bg-white/10 transition-colors cursor-pointer"
+                 >
+                   <div className="min-w-0">
+                      <p className="text-xs text-white font-medium truncate">{tr.title}</p>
+                      <p className="text-[10px] text-white/50 truncate">{tr.artist}</p>
+                   </div>
+                 </button>
+               ))}
+             </div>
+          </div>
+        )}
+      </div>
     </div>
+    </>
   );
 });
 
@@ -863,6 +1154,18 @@ export default function Player({
   // Spotify integration state
   const [playlists, setPlaylists] = useState<Playlist[]>(PLAYLISTS);
   const [spotifyLoggedIn, setSpotifyLoggedIn] = useState<boolean>(false);
+  const [spotifyDeviceId, setSpotifyDeviceId] = useState<string | null>(null);
+  const [isSpotifyPremium, setIsSpotifyPremium] = useState<boolean | null>(null);
+  const spotifyPlayerRef = useRef<any>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Track[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isLoadingPlaylist, setIsLoadingPlaylist] = useState(false);
+  const [showLyrics, setShowLyrics] = useState(false);
+  const [lyrics, setLyrics] = useState<{time: number, text: string}[]>([]);
+  const [isShuffle, setIsShuffle] = useState(false);
+  const [repeatMode, setRepeatMode] = useState<0|1|2>(0);
+  const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Helper to read cookies on client side
   const getCookie = useCallback((name: string): string | null => {
@@ -935,71 +1238,139 @@ export default function Player({
     }
   }, []);
 
-  // Reusable Spotify Top Tracks loader
-  const loadSpotifyTracks = useCallback((token: string) => {
+  // Spotify Data Loader (Playlists, Liked Songs, Top Tracks)
+  const loadSpotifyData = useCallback(async (token: string) => {
     setSpotifyLoggedIn(true);
-    fetch("https://api.spotify.com/v1/me/top/tracks?time_range=long_term&limit=15", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-      .then((res) => {
-        if (res.status === 401) {
-          document.cookie = "spotify_access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
-          setSpotifyLoggedIn(false);
-          throw new Error("Spotify token expired");
-        }
-        if (!res.ok) throw new Error("Failed to fetch top tracks");
-        return res.json();
-      })
-      .then((data) => {
-        if (data.items && data.items.length > 0) {
-          const spotifyTracks: Track[] = data.items.map((item: any) => ({
-            id: `spotify-${item.id}`,
-            title: item.name,
-            artist: item.artists.map((a: any) => a.name).join(", "),
-            film: item.album.name,
-            year: parseInt(item.album.release_date?.split("-")[0]) || 2024,
-            duration: Math.floor(item.duration_ms / 1000),
-            videoId: "", // resolved dynamically on play
-          }));
 
-          const spotifyPlaylist: Playlist = {
-            id: "spotify-top-tracks",
-            name: "Spotify Top",
-            description: "Your Top Spotify Tracks",
+    const headers = { Authorization: `Bearer ${token}` };
+
+    const parseTrack = (item: any): Track | null => {
+      const track = item.track || item;
+      if (!track || !track.id) return null;
+      return {
+        id: `spotify-${track.id}`,
+        title: track.name,
+        artist: track.artists?.map((a: any) => a.name).join(", ") || "Unknown",
+        film: track.album?.name || "",
+        year: parseInt(track.album?.release_date?.split("-")[0]) || 2024,
+        duration: Math.floor(track.duration_ms / 1000) || 180,
+        videoId: "",
+      };
+    };
+
+    try {
+      // Fetch Liked Songs (first page)
+      const likedRes = await fetch("https://api.spotify.com/v1/me/tracks?limit=50", { headers });
+      if (likedRes.status === 401) throw new Error("Unauthorized");
+      if (likedRes.ok) {
+        const likedData = await likedRes.json();
+        const likedTracks = likedData.items.map(parseTrack).filter(Boolean) as Track[];
+        
+        setPlaylists(prev => {
+          if (prev.some(p => p.id === "spotify-liked-songs")) return prev;
+          return [...prev, {
+            id: "spotify-liked-songs",
+            name: "Spotify: Liked Songs",
+            description: "Your Saved Tracks",
             sceneClass: "scene-c",
             accentColor: "#1DB954",
-            tracks: spotifyTracks,
-          };
-
-          setPlaylists((prev) => {
-            if (prev.some((p) => p.id === "spotify-top-tracks")) return prev;
-            return [...prev, spotifyPlaylist];
-          });
-
-          if (!playlistStatesRef.current["spotify-top-tracks"]) {
-            playlistStatesRef.current["spotify-top-tracks"] = { trackIndex: 0, currentTime: 0 };
-          }
+            tracks: likedTracks,
+            spotifyUrl: likedData.next // Store next URL for background loading
+          } as any];
+        });
+        if (!playlistStatesRef.current["spotify-liked-songs"]) {
+          playlistStatesRef.current["spotify-liked-songs"] = { trackIndex: 0, currentTime: 0 };
         }
-      })
-      .catch((err) => {
-        console.error("Failed to load Spotify top tracks:", err);
-      });
+      }
+
+      // Fetch User Playlists
+      const plRes = await fetch("https://api.spotify.com/v1/me/playlists?limit=50", { headers });
+      if (plRes.ok) {
+        const plData = await plRes.json();
+        const userPlaylists = plData.items.map((pl: any) => ({
+          id: `spotify-pl-${pl.id}`,
+          name: `Spotify: ${pl.name}`,
+          description: pl.description || "",
+          sceneClass: "scene-c",
+          accentColor: "#1DB954",
+          tracks: [], // Empty initially, loaded on click
+          spotifyUrl: pl.tracks.href // Store API URL to fetch tracks later
+        }));
+        setPlaylists(prev => {
+          const newLists = userPlaylists.filter((np: any) => !prev.some((p: any) => p.id === np.id));
+          return [...prev, ...newLists];
+        });
+        userPlaylists.forEach((pl: any) => {
+           if (!playlistStatesRef.current[pl.id]) {
+             playlistStatesRef.current[pl.id] = { trackIndex: 0, currentTime: 0 };
+           }
+        });
+      }
+
+    } catch (err) {
+      if ((err as Error).message === "Unauthorized") {
+        document.cookie = "spotify_access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+        setSpotifyLoggedIn(false);
+      }
+      console.error("Failed to load Spotify data:", err);
+    }
   }, []);
+
+  // Background Loader for huge playlists
+  const loadRemainingTracks = async (playlistId: string, nextUrl: string) => {
+    const token = getCookie("spotify_access_token");
+    if (!token || !nextUrl) return;
+    
+    let currentUrl = nextUrl;
+    while (currentUrl) {
+      try {
+        const res = await fetch(currentUrl, { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) break;
+        const data = await res.json();
+        
+        const newTracks: Track[] = data.items.map((item: any) => {
+          const track = item.track || item;
+          if (!track || !track.id) return null;
+          return {
+            id: `spotify-${track.id}`,
+            title: track.name,
+            artist: track.artists?.map((a: any) => a.name).join(", ") || "Unknown",
+            film: track.album?.name || "",
+            year: parseInt(track.album?.release_date?.split("-")[0]) || 2024,
+            duration: Math.floor(track.duration_ms / 1000) || 180,
+            videoId: "",
+          };
+        }).filter(Boolean) as Track[];
+
+        setPlaylists(prev => prev.map(p => {
+          if (p.id === playlistId) {
+            const existingIds = new Set(p.tracks.map(t => t.id));
+            const unique = newTracks.filter(t => !existingIds.has(t.id));
+            return { ...p, tracks: [...p.tracks, ...unique] };
+          }
+          return p;
+        }));
+        
+        currentUrl = data.next;
+      } catch (err) {
+        console.error("Background load error:", err);
+        break;
+      }
+    }
+  };
 
   // Fetch Spotify tracks on load OR when postMessage login event fires
   useEffect(() => {
     const token = getCookie("spotify_access_token");
     if (token) {
-      loadSpotifyTracks(token);
+      loadSpotifyData(token);
     }
 
     const handleSpotifyMessage = (event: MessageEvent) => {
       if (event.data === "spotify_login_success") {
         const newToken = getCookie("spotify_access_token");
         if (newToken) {
-          loadSpotifyTracks(newToken);
+          loadSpotifyData(newToken);
           setCurrentPlaylistId("spotify-top-tracks");
           setTrackIndex(0);
           setCurrentTime(0);
@@ -1009,7 +1380,7 @@ export default function Player({
 
     window.addEventListener("message", handleSpotifyMessage);
     return () => window.removeEventListener("message", handleSpotifyMessage);
-  }, [getCookie, loadSpotifyTracks]);
+  }, [getCookie, loadSpotifyData]);
 
   // Keep-alive silent audio context player to prevent background throttling on lock screen
   const silentAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -1072,6 +1443,28 @@ export default function Player({
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [currentPlaylistId, trackIndex, currentTime]);
 
+  const fadeOutAndSwitch = useCallback((callback: () => void) => {
+    if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
+    if (!isPlaying) {
+      callback();
+      return;
+    }
+    let currentVol = 100;
+    fadeIntervalRef.current = setInterval(() => {
+      currentVol -= 10;
+      if (currentVol <= 0) {
+        if (fadeIntervalRef.current) clearInterval(fadeIntervalRef.current);
+        callback();
+      } else {
+        if (useYtFallbackRef.current && playerRef.current) {
+          try { playerRef.current.setVolume(currentVol); } catch {}
+        } else if (audioRef.current) {
+          audioRef.current.volume = Math.max(0, currentVol / 100);
+        }
+      }
+    }, 100);
+  }, [isPlaying]);
+
   const handleSelectTrack = useCallback((idx: number) => {
     const targetTrack = currentPlaylist.tracks[idx];
     if (!targetTrack) return;
@@ -1094,37 +1487,75 @@ export default function Player({
     initialSeekTimeRef.current = 0;
     setIsPlaying(true);
 
-    const playVideo = (vid: string) => {
+        const playVideo = (vid: string, isSpotifyTarget?: boolean, spotifyRealId?: string) => {
+      // NATIVE SPOTIFY PREMIUM PLAYBACK
+      if (isSpotifyTarget && spotifyRealId && isSpotifyPremium && spotifyDeviceId) {
+         const token = getCookie("spotify_access_token");
+         fetch(`https://api.spotify.com/v1/me/player/play?device_id=${spotifyDeviceId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ uris: [`spotify:track:${spotifyRealId}`] }),
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+         }).then(() => {
+            // Stop YouTube if it was playing
+            if (playerRef.current) {
+               try { playerRef.current.pauseVideo(); } catch {}
+            }
+            if (audioRef.current) {
+               audioRef.current.pause();
+            }
+         }).catch(e => {
+            console.error("Native playback failed, falling back", e);
+            // Fallback logic could go here
+         });
+         return;
+      }
+
+      // YOUTUBE OR HTML5 FALLBACK
       if (useYtFallbackRef.current && playerRef.current) {
         try {
           lastLoadedYtVideoId.current = vid;
           playerRef.current.unMute();
-          playerRef.current.setVolume(100);
+          playerRef.current.setVolume(0); // Start at 0 for fade in
           playerRef.current.loadVideoById({
             videoId: vid,
             startSeconds: 0,
           });
           playerRef.current.playVideo();
+          // Fade In
+          let vol = 0;
+          const fi = setInterval(() => {
+             vol += 10;
+             if(vol >= 100) { clearInterval(fi); vol=100; }
+             try { playerRef.current?.setVolume(vol); } catch {}
+          }, 100);
         } catch {
           // ignore
         }
       } else if (audioRef.current) {
         audioRef.current.src = `/audio/${vid}.webm`;
         audioRef.current.currentTime = 0;
-        audioRef.current.play().catch(() => {
+        audioRef.current.volume = 0;
+        audioRef.current.play().then(() => {
+           let vol = 0;
+           const fi = setInterval(() => {
+             vol += 0.1;
+             if(vol >= 1) { clearInterval(fi); vol=1; }
+             if(audioRef.current) audioRef.current.volume = vol;
+           }, 100);
+        }).catch(() => {
           setUseYtFallback(true);
         });
       }
     };
 
-    if (currentPlaylistId === "spotify-top-tracks" && !targetTrack.videoId) {
+    if (currentPlaylistId.startsWith("spotify-") && !targetTrack.videoId) {
       // Resolve Spotify track query dynamically to YouTube video ID on play
       fetch(`/api/youtube-search?q=${encodeURIComponent(targetTrack.title + " " + targetTrack.artist)}`)
         .then((res) => res.json())
         .then((data) => {
           if (data.videoId) {
             targetTrack.videoId = data.videoId;
-            playVideo(data.videoId);
+            playVideo(data.videoId, true, targetTrack.id.replace('spotify-', '').replace('search-', ''));
           } else {
             console.error("No YouTube video resolved for this Spotify track");
           }
@@ -1133,19 +1564,44 @@ export default function Player({
           console.error("Error resolving Spotify track:", err);
         });
     } else {
-      playVideo(targetTrack.videoId);
+      playVideo(targetTrack.videoId, targetTrack.id.startsWith('spotify-'), targetTrack.id.replace('spotify-', '').replace('search-', ''));
     }
   }, [currentPlaylist.tracks, currentPlaylistId]);
 
   const handleNextTrack = useCallback(() => {
-    const nextIdx = (trackIndex + 1) % currentPlaylist.tracks.length;
-    handleSelectTrack(nextIdx);
-  }, [currentPlaylist.tracks.length, handleSelectTrack, trackIndex]);
+    if (repeatMode === 2) {
+      fadeOutAndSwitch(() => handleSelectTrack(trackIndex));
+      return;
+    }
+    
+    let nextIdx = trackIndex + 1;
+    if (isShuffle) {
+      nextIdx = Math.floor(Math.random() * currentPlaylist.tracks.length);
+    } else if (nextIdx >= currentPlaylist.tracks.length) {
+      if (repeatMode === 0) {
+         setIsPlaying(false);
+         return;
+      }
+      nextIdx = 0;
+    }
+    fadeOutAndSwitch(() => handleSelectTrack(nextIdx));
+  }, [currentPlaylist.tracks.length, handleSelectTrack, trackIndex, repeatMode, isShuffle, fadeOutAndSwitch]);
 
   const handlePrevTrack = useCallback(() => {
-    const prevIdx = (trackIndex - 1 + currentPlaylist.tracks.length) % currentPlaylist.tracks.length;
-    handleSelectTrack(prevIdx);
-  }, [currentPlaylist.tracks.length, handleSelectTrack, trackIndex]);
+    if (currentTime > 3) {
+      // Restart current track if we are more than 3 seconds in
+      fadeOutAndSwitch(() => handleSelectTrack(trackIndex));
+      return;
+    }
+    let prevIdx = trackIndex - 1;
+    if (isShuffle) {
+      prevIdx = Math.floor(Math.random() * currentPlaylist.tracks.length);
+    } else if (prevIdx < 0) {
+      prevIdx = currentPlaylist.tracks.length - 1;
+    }
+    fadeOutAndSwitch(() => handleSelectTrack(prevIdx));
+  }, [currentPlaylist.tracks.length, handleSelectTrack, trackIndex, isShuffle, fadeOutAndSwitch, currentTime]);
+
 
   const handleNextTrackRef = useRef(handleNextTrack);
   useEffect(() => {
@@ -1627,7 +2083,22 @@ export default function Player({
         playerRef.current.setVolume(100);
         const seek = Math.floor(savedState.currentTime || 0);
 
-        const playSwitchedTrack = (vid: string) => {
+        const playSwitchedTrack = (vid: string, isSpotifyTarget?: boolean, spotifyRealId?: string) => {
+          if (isSpotifyTarget && spotifyRealId && isSpotifyPremium && spotifyDeviceId) {
+            const token = getCookie("spotify_access_token");
+            fetch(`https://api.spotify.com/v1/me/player/play?device_id=${spotifyDeviceId}`, {
+              method: 'PUT',
+              body: JSON.stringify({ uris: [`spotify:track:${spotifyRealId}`], position_ms: seek * 1000 }),
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+            }).then(() => {
+              if (playerRef.current) {
+                try { playerRef.current.pauseVideo(); } catch {}
+              }
+              if (audioRef.current) audioRef.current.pause();
+            }).catch(e => console.error("Native playback failed", e));
+            return;
+          }
+
           if (seek > 0) {
             playerRef.current?.loadVideoById({ videoId: vid, startSeconds: seek });
           } else {
@@ -1642,11 +2113,11 @@ export default function Player({
             .then((data) => {
               if (data.videoId) {
                 targetTrack.videoId = data.videoId;
-                playSwitchedTrack(data.videoId);
+                playSwitchedTrack(data.videoId, true, targetTrack.id.replace('spotify-', '').replace('search-', ''));
               }
             });
         } else {
-          playSwitchedTrack(targetTrack.videoId);
+          playSwitchedTrack(targetTrack.videoId, targetTrack.id.startsWith('spotify-'), targetTrack.id.replace('spotify-', '').replace('search-', ''));
         }
       } catch {
         // ignore
@@ -1777,6 +2248,36 @@ export default function Player({
 
   const [burstTrigger, setBurstTrigger] = useState<{ x: number; y: number; id: number } | null>(null);
 
+  // Fetch Live Lyrics from LRCLIB
+  useEffect(() => {
+    if (!currentTrack) return;
+    setLyrics([]);
+    
+    // Quick search against LRCLIB API
+    const trackName = currentTrack.title.split("(")[0].trim(); // Remove (feat. X) for better matches
+    fetch(`https://lrclib.net/api/search?track_name=${encodeURIComponent(trackName)}&artist_name=${encodeURIComponent(currentTrack.artist)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.length > 0) {
+          const bestMatch = data.find((d: any) => d.syncedLyrics) || data[0];
+          if (bestMatch && bestMatch.syncedLyrics) {
+            const lines = bestMatch.syncedLyrics.split('\n');
+            const parsed = lines.map((line: string) => {
+               const match = line.match(/^\[(\d+):(\d+\.\d+)\](.*)/);
+               if (match) {
+                 const minutes = parseInt(match[1], 10);
+                 const seconds = parseFloat(match[2]);
+                 return { time: minutes * 60 + seconds, text: match[3].trim() };
+               }
+               return null;
+            }).filter(Boolean);
+            setLyrics(parsed);
+          }
+        }
+      })
+      .catch(err => console.error("LRCLIB Error:", err));
+  }, [currentTrack]);
+
   const handleToggleFavorite = useCallback((e: React.MouseEvent) => {
     (e.currentTarget as HTMLElement).blur();
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -1809,6 +2310,66 @@ export default function Player({
       return updated;
     });
   }, [currentTrack.id]);
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    const token = getCookie("spotify_access_token");
+    if (!token) {
+      handleSwitchPlaylist("connect-spotify");
+      return;
+    }
+    
+    setIsSearching(true);
+    try {
+      const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(searchQuery)}&type=track&limit=10`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const tracks: Track[] = data.tracks.items.map((item: any) => ({
+          id: `spotify-search-${item.id}`,
+          title: item.name,
+          artist: item.artists?.map((a: any) => a.name).join(", ") || "Unknown",
+          film: item.album?.name || "",
+          year: parseInt(item.album?.release_date?.split("-")[0]) || 2024,
+          duration: Math.floor(item.duration_ms / 1000) || 180,
+          videoId: "",
+        }));
+        setSearchResults(tracks);
+      }
+    } catch (err) {
+      console.error("Search failed", err);
+    }
+    setIsSearching(false);
+  };
+
+  const handlePlaySearchResult = (track: Track) => {
+    // We create a temporary playlist for the search result so it fits into the player's architecture
+    const tempPlaylistId = "spotify-search-result";
+    setPlaylists(prev => {
+      const exists = prev.some(p => p.id === tempPlaylistId);
+      const searchPl = {
+        id: tempPlaylistId,
+        name: "Search Result",
+        description: "Your searched track",
+        sceneClass: "scene-c",
+        accentColor: "#1DB954",
+        tracks: [track],
+      };
+      if (exists) {
+        return prev.map(p => p.id === tempPlaylistId ? searchPl : p);
+      }
+      return [...prev, searchPl];
+    });
+    setSearchResults([]);
+    setSearchQuery("");
+    
+    // Wait for state flush
+    setTimeout(() => {
+      handleSwitchPlaylist(tempPlaylistId);
+    }, 100);
+  };
 
   return (
     <div className="w-full max-w-xl mx-auto relative">
@@ -1929,7 +2490,21 @@ export default function Player({
         onSwitchPlaylist={handleSwitchPlaylist}
         showMusicList={showMusicList}
         onToggleMusicList={() => setShowMusicList((prev) => !prev)}
-        spotifyLoggedIn={spotifyLoggedIn}
+                spotifyLoggedIn={spotifyLoggedIn}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        onSearch={handleSearch}
+        isSearching={isSearching}
+        searchResults={searchResults}
+        onPlaySearchResult={handlePlaySearchResult}
+        isLoadingPlaylist={isLoadingPlaylist}
+        isShuffle={isShuffle}
+        onToggleShuffle={() => setIsShuffle(prev => !prev)}
+        repeatMode={repeatMode}
+        onToggleRepeat={() => setRepeatMode(prev => (prev + 1) % 3 as 0|1|2)}
+        showLyrics={showLyrics}
+        onToggleLyrics={() => setShowLyrics(prev => !prev)}
+        lyrics={lyrics}
       />
 
       {/* Mobile Player */}
@@ -1952,7 +2527,21 @@ export default function Player({
         onSwitchPlaylist={handleSwitchPlaylist}
         showMusicList={showMusicList}
         onToggleMusicList={() => setShowMusicList((prev) => !prev)}
-        spotifyLoggedIn={spotifyLoggedIn}
+                spotifyLoggedIn={spotifyLoggedIn}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        onSearch={handleSearch}
+        isSearching={isSearching}
+        searchResults={searchResults}
+        onPlaySearchResult={handlePlaySearchResult}
+        isLoadingPlaylist={isLoadingPlaylist}
+        isShuffle={isShuffle}
+        onToggleShuffle={() => setIsShuffle(prev => !prev)}
+        repeatMode={repeatMode}
+        onToggleRepeat={() => setRepeatMode(prev => (prev + 1) % 3 as 0|1|2)}
+        showLyrics={showLyrics}
+        onToggleLyrics={() => setShowLyrics(prev => !prev)}
+        lyrics={lyrics}
       />
     </div>
   );

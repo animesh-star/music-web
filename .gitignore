@@ -30,3 +30,6 @@ Thumbs.db
 # Tooling / Local agent helpers
 get-shit-done/
 ralph/
+
+.vercel
+.env*
