@@ -863,9 +863,9 @@ export default function Player({
   // Spotify integration state
   const [playlists, setPlaylists] = useState<Playlist[]>(PLAYLISTS);
   const [spotifyLoggedIn, setSpotifyLoggedIn] = useState<boolean>(false);
-  // Autoplay unlock — browser mutes audio until user interacts
-  const [isMutedByBrowser, setIsMutedByBrowser] = useState<boolean>(false);
-  const isMutedByBrowserRef = useRef<boolean>(false);
+  // Autoplay: always assume muted on first load; unlock on first user interaction
+  const [needsUnlock, setNeedsUnlock] = useState<boolean>(true);
+  const needsUnlockRef = useRef<boolean>(true);
 
   // Helper to read cookies on client side
   const getCookie = useCallback((name: string): string | null => {
@@ -1176,7 +1176,7 @@ export default function Player({
             }
             lastLoadedYtVideoId.current = currentTrack.videoId;
 
-            // Always try to unmute immediately — works if user has prior engagement with site
+            // Try to unmute immediately — works if user has prior browser engagement with site
             if (useYtFallbackRef.current) {
               userPausedRef.current = false;
               setIsPlaying(true);
@@ -1185,14 +1185,18 @@ export default function Player({
                 event.target.setVolume(100);
                 event.target.playVideo();
               } catch { /* ignore */ }
-              // 600ms later: check if browser silently re-muted us
+              // Check 800ms later if we're actually unmuted
               setTimeout(() => {
                 try {
                   const stillMuted = !!(event.target.isMuted && event.target.isMuted());
-                  isMutedByBrowserRef.current = stillMuted;
-                  setIsMutedByBrowser(stillMuted);
+                  if (!stillMuted) {
+                    // Browser allowed unmuted autoplay — clear the badge
+                    needsUnlockRef.current = false;
+                    setNeedsUnlock(false);
+                  }
+                  // If stillMuted, badge stays visible — user needs to click
                 } catch { /* ignore */ }
-              }, 600);
+              }, 800);
             } else {
               try {
                 event.target.mute();
@@ -1741,36 +1745,35 @@ useEffect(() => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handlePlayPause, handleSkipBack10, handleSkipForward10, handleNextTrack, handlePrevTrack, handleSwitchPlaylist]);
 
-  // First-interaction unlock: unmute YouTube the moment the user touches/clicks/presses anything
+  // Unlock audio on first user interaction (click/touch/key anywhere on page)
   useEffect(() => {
-    if (!isMutedByBrowser) return; // Only needed when muted by browser
+    if (!needsUnlock) return;
 
     const unlock = () => {
-      if (!isMutedByBrowserRef.current) return;
+      if (!needsUnlockRef.current) return;
       try {
         if (playerRef.current) {
           playerRef.current.unMute();
           playerRef.current.setVolume(100);
           playerRef.current.playVideo();
         }
-        isMutedByBrowserRef.current = false;
-        setIsMutedByBrowser(false);
       } catch { /* ignore */ }
-      // Remove listeners after first interaction
-      window.removeEventListener("click", unlock, true);
-      window.removeEventListener("touchstart", unlock, true);
-      window.removeEventListener("keydown", unlock, true);
+      needsUnlockRef.current = false;
+      setNeedsUnlock(false);
+      window.removeEventListener('click', unlock, true);
+      window.removeEventListener('touchstart', unlock, true);
+      window.removeEventListener('keydown', unlock, true);
     };
 
-    window.addEventListener("click", unlock, true);
-    window.addEventListener("touchstart", unlock, true);
-    window.addEventListener("keydown", unlock, true);
+    window.addEventListener('click', unlock, true);
+    window.addEventListener('touchstart', unlock, true);
+    window.addEventListener('keydown', unlock, true);
     return () => {
-      window.removeEventListener("click", unlock, true);
-      window.removeEventListener("touchstart", unlock, true);
-      window.removeEventListener("keydown", unlock, true);
+      window.removeEventListener('click', unlock, true);
+      window.removeEventListener('touchstart', unlock, true);
+      window.removeEventListener('keydown', unlock, true);
     };
-  }, [isMutedByBrowser]);
+  }, [needsUnlock]);
 
   // Close Music List when clicking anywhere outside on the site
   useEffect(() => {
@@ -1831,16 +1834,16 @@ useEffect(() => {
 
   return (
     <div className="w-full max-w-xl mx-auto relative">
-      {/* Small muted badge — shown when browser autoplay policy mutes audio. Disappears on first interaction. */}
-      {isMutedByBrowser && (
+      {/* Sound unlock badge — always shown on first load until user interacts */}
+      {needsUnlock && (
         <div
-          className="absolute -top-10 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-pointer select-none"
+          className="absolute -top-11 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 rounded-full cursor-pointer select-none"
           style={{
-            background: 'rgba(0,0,0,0.75)',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
-            border: '1px solid rgba(255,255,255,0.15)',
-            animation: 'pulse 2s ease-in-out infinite',
+            background: 'rgba(0,0,0,0.80)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            border: '1px solid rgba(255,255,255,0.18)',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
           }}
           onClick={() => {
             try {
@@ -1849,13 +1852,13 @@ useEffect(() => {
                 playerRef.current.setVolume(100);
                 playerRef.current.playVideo();
               }
-              isMutedByBrowserRef.current = false;
-              setIsMutedByBrowser(false);
             } catch { /* ignore */ }
+            needsUnlockRef.current = false;
+            setNeedsUnlock(false);
           }}
         >
-          <span className="text-white/80 text-[11px]">🔇</span>
-          <span className="text-white text-[11px] font-medium">Tap anywhere for sound</span>
+          <span className="text-lg">🔇</span>
+          <span className="text-white text-[12px] font-semibold">Click for sound</span>
         </div>
       )}
       {/* Loving Heart Burst Particles (Appears for 5.5s on favorite click only) */}
