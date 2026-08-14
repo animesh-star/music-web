@@ -814,7 +814,7 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
           type="text" 
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search Spotify for any song..." 
+          placeholder="Search any song on Echoa..." 
           className="w-full bg-black/40 border border-white/10 rounded-full py-2 pl-9 pr-4 text-xs text-white placeholder:text-white/50 focus:outline-none focus:border-white/30 transition-all backdrop-blur-md"
         />
         <button type="submit" className="hidden">Search</button>
@@ -1102,7 +1102,7 @@ const MobilePlayer = React.memo(function MobilePlayer({
             type="text" 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search Spotify..." 
+            placeholder="Search any song on Echoa..." 
             className="w-full bg-black/30 border border-white/5 rounded-full py-2 pl-9 pr-4 text-xs text-white placeholder:text-white/50 focus:outline-none focus:border-white/20 transition-all"
           />
         </form>
@@ -2347,32 +2347,50 @@ export default function Player({
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
-    const token = getCookie("spotify_access_token");
-    if (!token) {
-      handleSwitchPlaylist("connect-spotify");
-      return;
-    }
     
     setIsSearching(true);
+    const token = getCookie("spotify_access_token");
+    
     try {
-      const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(searchQuery)}&type=track&limit=10`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const tracks: Track[] = data.tracks.items.map((item: any) => ({
-          id: `spotify-search-${item.id}`,
-          title: item.name,
-          artist: item.artists?.map((a: any) => a.name).join(", ") || "Unknown",
-          film: item.album?.name || "",
-          year: parseInt(item.album?.release_date?.split("-")[0]) || 2024,
-          duration: Math.floor(item.duration_ms / 1000) || 180,
+      if (token) {
+        // Search via Spotify API if logged in
+        const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(searchQuery)}&type=track&limit=10`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const tracks: Track[] = data.tracks.items.map((item: any) => ({
+            id: `spotify-search-${item.id}`,
+            title: item.name,
+            artist: item.artists?.map((a: any) => a.name).join(", ") || "Unknown",
+            film: item.album?.name || "",
+            year: parseInt(item.album?.release_date?.split("-")[0]) || 2024,
+            duration: Math.floor(item.duration_ms / 1000) || 180,
+            videoId: "",
+          }));
+          setSearchResults(tracks);
+          setIsSearching(false);
+          return;
+        }
+      }
+
+      // Universal iTunes Search API (Free, Instant, No Login Required!)
+      const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(searchQuery)}&entity=song&limit=10`);
+      if (itunesRes.ok) {
+        const itunesData = await itunesRes.json();
+        const tracks: Track[] = itunesData.results.map((item: any) => ({
+          id: `itunes-search-${item.trackId}`,
+          title: item.trackName,
+          artist: item.artistName,
+          film: item.collectionName || "",
+          year: parseInt(item.releaseDate?.split("-")[0]) || 2024,
+          duration: Math.floor(item.trackTimeMillis / 1000) || 180,
           videoId: "",
         }));
         setSearchResults(tracks);
       }
     } catch (err) {
-      console.error("Search failed", err);
+      console.error("Universal Search error:", err);
     }
     setIsSearching(false);
   };
