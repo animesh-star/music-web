@@ -566,6 +566,7 @@ const TransportControls = React.memo(function TransportControls({
 
 // DESKTOP PLAYER COMPONENT
 interface DesktopPlayerProps {
+  currentLyricText?: string;
   currentTrack: Track;
   isPlaying: boolean;
   currentTime: number;
@@ -599,6 +600,7 @@ interface DesktopPlayerProps {
 }
 
 const DesktopPlayer = React.memo(function DesktopPlayer({
+  currentLyricText,
   currentTrack,
   isPlaying,
   currentTime,
@@ -732,6 +734,15 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
           <span>{formatTime(currentTime)}</span>
           <span>{formatTime(duration)}</span>
         </div>
+        {/* Lower-Side Synced Lyrics Bar */}
+        {currentLyricText && (
+          <div className="w-full bg-black/40 backdrop-blur-md border border-white/10 rounded-full py-1 px-4 mt-1 flex items-center justify-center gap-2 animate-in fade-in duration-300">
+            <span className="text-emerald-400 animate-pulse text-[11px]">♪</span>
+            <p className="text-xs font-semibold text-emerald-300/90 tracking-wide text-center truncate drop-shadow-[0_0_8px_rgba(52,211,153,0.4)]">
+              {currentLyricText}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Right Transport */}
@@ -802,6 +813,7 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
 
 // MOBILE PLAYER COMPONENT
 interface MobilePlayerProps {
+  currentLyricText?: string;
   currentTrack: Track;
   isPlaying: boolean;
   currentTime: number;
@@ -835,6 +847,7 @@ interface MobilePlayerProps {
 }
 
 const MobilePlayer = React.memo(function MobilePlayer({
+  currentLyricText,
   currentTrack,
   isPlaying,
   currentTime,
@@ -1059,9 +1072,9 @@ export default function Player({
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Track[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [lyrics, setLyrics] = useState<{ time: number; text: string }[]>([]);
   const [isLoadingPlaylist, setIsLoadingPlaylist] = useState(false);
-  const [ setShowLyrics] = useState(false);
-  const [ setLyrics] = useState<{time: number, text: string}[]>([]);
+
   const [isShuffle, setIsShuffle] = useState(false);
   const [repeatMode, setRepeatMode] = useState<0|1|2>(0);
   const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -1310,6 +1323,44 @@ export default function Player({
     }
   }, [currentTrack.id, currentTrack.duration]);
 
+  // Fetch Live Synced Lyrics from LRCLIB API
+  useEffect(() => {
+    if (!currentTrack) return;
+    setLyrics([]);
+    
+    const cleanTitle = currentTrack.title.split("(")[0].split("-")[0].trim();
+    const cleanArtist = currentTrack.artist.split(",")[0].split("&")[0].trim();
+
+    fetch(`https://lrclib.net/api/search?track_name=${encodeURIComponent(cleanTitle)}&artist_name=${encodeURIComponent(cleanArtist)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.length > 0) {
+          const match = data.find((d: any) => d.syncedLyrics) || data[0];
+          if (match && match.syncedLyrics) {
+            const lines = match.syncedLyrics.split("\n");
+            const parsed = lines
+              .map((line: string) => {
+                const m = line.match(/^\[(\d+):(\d+\.\d+)\](.*)/);
+                if (m) {
+                  const mins = parseInt(m[1], 10);
+                  const secs = parseFloat(m[2]);
+                  return { time: mins * 60 + secs, text: m[3].trim() };
+                }
+                return null;
+              })
+              .filter(Boolean);
+            setLyrics(parsed as { time: number; text: string }[]);
+          }
+        }
+      })
+      .catch((err) => console.error("LRCLIB Fetch Error:", err));
+  }, [currentTrack?.id, currentTrack?.title, currentTrack?.artist]);
+
+  const currentLyric = lyrics.find((line, i) => {
+    const nextLine = lyrics[i + 1];
+    return currentTime >= line.time && (!nextLine || currentTime < nextLine.time);
+  });
+
 
   // Broadcast scene changes and persist active playlist ID
   useEffect(() => {
@@ -1387,7 +1438,19 @@ export default function Player({
     initialSeekTimeRef.current = 0;
     setIsPlaying(true);
 
-        const playVideo = (vid: string, isSpotifyTarget?: boolean, spotifyRealId?: string) => {
+        const playVideo = (vid: string, isSpotifyTarget?: boolean, spotifyRealId?: string, targetAudioUrl?: string) => {
+      if (targetAudioUrl) {
+        if (playerRef.current) {
+          try { playerRef.current.pauseVideo(); } catch {}
+        }
+        if (audioRef.current) {
+          audioRef.current.src = targetAudioUrl;
+          audioRef.current.currentTime = 0;
+          audioRef.current.volume = 1;
+          audioRef.current.play().catch(e => console.error("Audio play error", e));
+        }
+        return;
+      }
       // NATIVE SPOTIFY PREMIUM PLAYBACK
       if (isSpotifyTarget && spotifyRealId && isSpotifyPremium && spotifyDeviceId) {
          const token = getCookie("spotify_access_token");
@@ -1448,7 +1511,12 @@ export default function Player({
       }
     };
 
-    if (currentPlaylistId.startsWith("spotify-") && !targetTrack.videoId) {
+    if (targetTrack.audioUrl) {
+      playVideo("", false, "", targetTrack.audioUrl);
+      return;
+    }
+
+    if ((currentPlaylistId.startsWith("spotify-") || currentPlaylistId.includes("search")) && !targetTrack.videoId) {
       // Resolve Spotify track query dynamically to YouTube video ID on play
       fetch(`/api/youtube-search?q=${encodeURIComponent(targetTrack.title + " " + targetTrack.artist)}`)
         .then((res) => res.json())
@@ -1457,7 +1525,17 @@ export default function Player({
             targetTrack.videoId = data.videoId;
             playVideo(data.videoId, true, targetTrack.id.replace('spotify-', '').replace('search-', ''));
           } else {
-            console.error("No YouTube video resolved for this Spotify track");
+            // Client-side Piped API fallback for searched songs
+            fetch(`https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(targetTrack.title + " " + targetTrack.artist)}&filter=music_songs`)
+              .then((res) => res.json())
+              .then((pipedData) => {
+                if (pipedData && pipedData.items && pipedData.items[0]) {
+                  const vid = pipedData.items[0].url.split("v=")[1];
+                  targetTrack.videoId = vid;
+                  playVideo(vid, false, "");
+                }
+              })
+              .catch((e) => console.error("Fallback search failed:", e));
           }
         })
         .catch((err) => {
@@ -2222,6 +2300,7 @@ export default function Player({
           year: parseInt(item.releaseDate?.split("-")[0]) || 2024,
           duration: Math.floor(item.trackTimeMillis / 1000) || 180,
           videoId: "",
+          audioUrl: item.previewUrl,
         }));
         setSearchResults(tracks);
       }
@@ -2381,6 +2460,7 @@ export default function Player({
 
       {/* Desktop Player */}
       <DesktopPlayer
+        currentLyricText={currentLyric?.text}
         currentTrack={currentTrack}
         isPlaying={isPlaying}
         currentTime={currentTime}
@@ -2416,6 +2496,7 @@ export default function Player({
 
       {/* Mobile Player */}
       <MobilePlayer
+        currentLyricText={currentLyric?.text}
         currentTrack={currentTrack}
         isPlaying={isPlaying}
         currentTime={currentTime}

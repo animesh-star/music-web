@@ -6,6 +6,7 @@ export interface Track {
   year?: number;
   duration: number; // in seconds
   videoId: string;
+  audioUrl?: string;
 }
 
 export interface Playlist {
