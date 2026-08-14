@@ -923,6 +923,7 @@ export default function Player({
   const handleNextTrack = useCallback(() => {
     const nextIdx = (trackIndex + 1) % currentPlaylist.tracks.length;
     const targetTrack = currentPlaylist.tracks[nextIdx];
+    if (!targetTrack) return;
 
     playlistStatesRef.current[currentPlaylistId] = {
       trackIndex: nextIdx,
@@ -941,8 +942,9 @@ export default function Player({
     initialSeekTimeRef.current = 0;
     setIsPlaying(true);
 
-    if (useYtFallbackRef.current && playerRef.current && targetTrack) {
+    if (useYtFallbackRef.current && playerRef.current) {
       try {
+        lastLoadedYtVideoId.current = targetTrack.videoId;
         playerRef.current.unMute();
         playerRef.current.setVolume(100);
         playerRef.current.loadVideoById(targetTrack.videoId);
@@ -950,12 +952,17 @@ export default function Player({
       } catch {
         // ignore
       }
+    } else if (audioRef.current) {
+      audioRef.current.src = `/audio/${targetTrack.videoId}.webm`;
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(() => {});
     }
   }, [currentPlaylist.tracks, currentPlaylistId, trackIndex]);
 
   const handlePrevTrack = useCallback(() => {
     const prevIdx = (trackIndex - 1 + currentPlaylist.tracks.length) % currentPlaylist.tracks.length;
     const targetTrack = currentPlaylist.tracks[prevIdx];
+    if (!targetTrack) return;
 
     playlistStatesRef.current[currentPlaylistId] = {
       trackIndex: prevIdx,
@@ -974,8 +981,9 @@ export default function Player({
     initialSeekTimeRef.current = 0;
     setIsPlaying(true);
 
-    if (useYtFallbackRef.current && playerRef.current && targetTrack) {
+    if (useYtFallbackRef.current && playerRef.current) {
       try {
+        lastLoadedYtVideoId.current = targetTrack.videoId;
         playerRef.current.unMute();
         playerRef.current.setVolume(100);
         playerRef.current.loadVideoById(targetTrack.videoId);
@@ -983,8 +991,17 @@ export default function Player({
       } catch {
         // ignore
       }
+    } else if (audioRef.current) {
+      audioRef.current.src = `/audio/${targetTrack.videoId}.webm`;
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(() => {});
     }
   }, [currentPlaylist.tracks, currentPlaylistId, trackIndex]);
+
+  const handleNextTrackRef = useRef(handleNextTrack);
+  useEffect(() => {
+    handleNextTrackRef.current = handleNextTrack;
+  }, [handleNextTrack]);
 
   // Setup single YouTube player instance safely as fallback
   useEffect(() => {
@@ -1080,7 +1097,9 @@ export default function Player({
               setIsPlaying(false);
             } else if (event.data === window.YT?.PlayerState.ENDED) {
               setIsPlaying(true);
-              handleNextTrack();
+              if (handleNextTrackRef.current) {
+                handleNextTrackRef.current();
+              }
             }
           },
           onError: (event) => {
@@ -1096,7 +1115,9 @@ export default function Player({
             }
             // Auto-skip to the next track if the YouTube video is restricted or unavailable
             setTimeout(() => {
-              handleNextTrack();
+              if (handleNextTrackRef.current) {
+                handleNextTrackRef.current();
+              }
             }, 500);
           },
         },
@@ -1153,6 +1174,21 @@ export default function Player({
       window.removeEventListener("keydown", unlockAudio);
     };
   }, []);
+
+// Auto-start playback after page refresh/hydration
+useEffect(() => {
+  if (!isHydrated) return;
+  // Trigger playback based on active player
+  if (useYtFallbackRef.current && playerRef.current) {
+    try {
+      playerRef.current.unMute();
+      playerRef.current.setVolume(100);
+      playerRef.current.playVideo();
+    } catch {}
+  } else if (audioRef.current) {
+    audioRef.current.play().catch(() => {});
+  }
+}, [isHydrated]);
 
   // Synchronize state when switching between HTML5 audio and YouTube fallback
   useEffect(() => {
@@ -1254,7 +1290,9 @@ export default function Player({
 
     const handleEnded = () => {
       setIsPlaying(true);
-      handleNextTrack();
+      if (handleNextTrackRef.current) {
+        handleNextTrackRef.current();
+      }
     };
 
     const handleError = () => {
@@ -1650,6 +1688,10 @@ export default function Player({
                       } catch {
                         // ignore
                       }
+                    } else if (audioRef.current) {
+                      audioRef.current.src = `/audio/${tr.videoId}.webm`;
+                      audioRef.current.currentTime = 0;
+                      audioRef.current.play().catch(() => {});
                     }
                   }}
                   className={`w-full flex items-center justify-between p-2 rounded-xl text-left transition-all ${
