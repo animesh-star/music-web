@@ -935,13 +935,9 @@ export default function Player({
     }
   }, []);
 
-  // Fetch Spotify Top Tracks if access token cookie exists
-  useEffect(() => {
-    const token = getCookie("spotify_access_token");
-    if (!token) return;
-
+  // Reusable Spotify Top Tracks loader
+  const loadSpotifyTracks = useCallback((token: string) => {
     setSpotifyLoggedIn(true);
-
     fetch("https://api.spotify.com/v1/me/top/tracks?time_range=long_term&limit=15", {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -949,7 +945,6 @@ export default function Player({
     })
       .then((res) => {
         if (res.status === 401) {
-          // Token expired, delete cookie
           document.cookie = "spotify_access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
           setSpotifyLoggedIn(false);
           throw new Error("Spotify token expired");
@@ -973,8 +968,8 @@ export default function Player({
             id: "spotify-top-tracks",
             name: "Spotify Top",
             description: "Your Top Spotify Tracks",
-            sceneClass: "scene-c", // Use Scene C styling or fallback styles
-            accentColor: "#1DB954", // Spotify Green
+            sceneClass: "scene-c",
+            accentColor: "#1DB954",
             tracks: spotifyTracks,
           };
 
@@ -991,7 +986,49 @@ export default function Player({
       .catch((err) => {
         console.error("Failed to load Spotify top tracks:", err);
       });
-  }, [getCookie]);
+  }, []);
+
+  // Fetch Spotify tracks on load OR when postMessage login event fires
+  useEffect(() => {
+    const token = getCookie("spotify_access_token");
+    if (token) {
+      loadSpotifyTracks(token);
+    }
+
+    const handleSpotifyMessage = (event: MessageEvent) => {
+      if (event.data === "spotify_login_success") {
+        const newToken = getCookie("spotify_access_token");
+        if (newToken) {
+          loadSpotifyTracks(newToken);
+          setCurrentPlaylistId("spotify-top-tracks");
+          setTrackIndex(0);
+          setCurrentTime(0);
+        }
+      }
+    };
+
+    window.addEventListener("message", handleSpotifyMessage);
+    return () => window.removeEventListener("message", handleSpotifyMessage);
+  }, [getCookie, loadSpotifyTracks]);
+
+  // Keep-alive silent audio context player to prevent background throttling on lock screen
+  const silentAudioRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const audio = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA");
+      audio.loop = true;
+      silentAudioRef.current = audio;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!silentAudioRef.current) return;
+    if (isPlaying) {
+      silentAudioRef.current.play().catch(() => {});
+    } else {
+      silentAudioRef.current.pause();
+    }
+  }, [isPlaying]);
 
   const currentPlaylist = playlists.find((p) => p.id === currentPlaylistId) || playlists[0];
   const currentTrack = currentPlaylist.tracks[trackIndex] || currentPlaylist.tracks[0];
@@ -1546,7 +1583,15 @@ export default function Player({
   // Smooth Scene Switcher: saves current position & resumes target scene exactly where left off
   const handleSwitchPlaylist = useCallback((newPlaylistId: string) => {
     if (newPlaylistId === "connect-spotify") {
-      window.location.href = "/api/spotify-auth";
+      const width = 600;
+      const height = 700;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+      window.open(
+        "/api/spotify-auth",
+        "Spotify Login",
+        `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes`
+      );
       return;
     }
 
@@ -1608,6 +1653,40 @@ export default function Player({
       }
     }
   }, [currentPlaylistId, trackIndex, currentTime, playlists]);
+
+  // Update Media Session API for mobile lockscreen integrations
+  useEffect(() => {
+    if (typeof window !== "undefined" && "mediaSession" in navigator && currentTrack) {
+      navigator.mediaSession.metadata = new window.MediaMetadata({
+        title: currentTrack.title,
+        artist: currentTrack.artist,
+        album: currentTrack.film || "Phoenix Play",
+        artwork: [
+          {
+            src: currentTrack.videoId ? `https://img.youtube.com/vi/${currentTrack.videoId}/hqdefault.jpg` : "/bg/logo.png",
+            sizes: "480x360",
+            type: "image/jpeg",
+          },
+        ],
+      });
+    }
+  }, [currentTrack]);
+
+  // Media Session lockscreen action controls
+  useEffect(() => {
+    if (typeof window !== "undefined" && "mediaSession" in navigator) {
+      try {
+        navigator.mediaSession.setActionHandler("play", () => handlePlayPause());
+        navigator.mediaSession.setActionHandler("pause", () => handlePlayPause());
+        navigator.mediaSession.setActionHandler("previoustrack", () => handlePrevTrack());
+        navigator.mediaSession.setActionHandler("nexttrack", () => handleNextTrack());
+        navigator.mediaSession.setActionHandler("seekbackward", () => handleSkipBack10());
+        navigator.mediaSession.setActionHandler("seekforward", () => handleSkipForward10());
+      } catch (e) {
+        // ignore errors for unsupported actions
+      }
+    }
+  }, [handlePlayPause, handlePrevTrack, handleNextTrack, handleSkipBack10, handleSkipForward10]);
 
   // Global Keyboard Shortcuts (Space: Play/Pause, Left: -10s, Right: +10s, N: Next, P: Prev, A/B/C: Scenes)
   useEffect(() => {
@@ -1809,12 +1888,22 @@ export default function Player({
               <div className="flex items-center gap-2">
                 <span className="text-[11px] text-white/50 font-medium">Want to stream your own tracks?</span>
               </div>
-              <a
-                href="/api/spotify-auth"
+              <button
+                onClick={() => {
+                  const width = 600;
+                  const height = 700;
+                  const left = window.screenX + (window.outerWidth - width) / 2;
+                  const top = window.screenY + (window.outerHeight - height) / 2;
+                  window.open(
+                    "/api/spotify-auth",
+                    "Spotify Login",
+                    `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes`
+                  );
+                }}
                 className="flex items-center gap-1.5 bg-[#1DB954] hover:bg-[#1ed760] text-white text-[11px] font-semibold px-3 py-1.5 rounded-full transition-all duration-200 active:scale-95 cursor-pointer shadow-md"
               >
                 <span>Connect Spotify</span>
-              </a>
+              </button>
             </div>
           )}
         </div>
