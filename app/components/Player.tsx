@@ -571,7 +571,14 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
   spotifyLoggedIn,
 }: DesktopPlayerProps) {
   return (
-    <div className="hidden sm:flex items-center gap-4 w-full rounded-full p-3 pr-5 glass-pill transition-all duration-300">
+    <div
+      className="hidden sm:flex items-center gap-4 w-full rounded-full p-3 pr-5 glass-pill transition-all duration-300"
+      style={{
+        backdropFilter: 'blur(72px) saturate(2) brightness(1.1)',
+        WebkitBackdropFilter: 'blur(72px) saturate(2) brightness(1.1)',
+        background: 'linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%)',
+      }}
+    >
       {/* 80px Spinning Vinyl */}
       <Vinyl
         sizePx={80}
@@ -724,7 +731,14 @@ const MobilePlayer = React.memo(function MobilePlayer({
   spotifyLoggedIn,
 }: MobilePlayerProps) {
   return (
-    <div className="flex flex-col sm:hidden gap-3.5 w-full rounded-[26px] p-4 glass-pill transition-all duration-300">
+    <div
+      className="flex flex-col sm:hidden gap-3.5 w-full rounded-[26px] p-4 glass-pill transition-all duration-300"
+      style={{
+        backdropFilter: 'blur(72px) saturate(2) brightness(1.1)',
+        WebkitBackdropFilter: 'blur(72px) saturate(2) brightness(1.1)',
+        background: 'linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 100%)',
+      }}
+    >
       {/* Row 1: 64px Vinyl + Title/Artist */}
       <div className="flex items-center gap-3.5 min-w-0">
         <Vinyl
