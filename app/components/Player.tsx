@@ -863,6 +863,9 @@ export default function Player({
   // Spotify integration state
   const [playlists, setPlaylists] = useState<Playlist[]>(PLAYLISTS);
   const [spotifyLoggedIn, setSpotifyLoggedIn] = useState<boolean>(false);
+  // Autoplay unlock: browsers block audio until user interacts with the page
+  const [needsUserGesture, setNeedsUserGesture] = useState<boolean>(false);
+  const userInteractedRef = useRef<boolean>(false);
 
   // Helper to read cookies on client side
   const getCookie = useCallback((name: string): string | null => {
@@ -1181,6 +1184,14 @@ export default function Player({
                 event.target.unMute();
                 event.target.setVolume(100);
                 event.target.playVideo();
+                // Check if actually unmuted — if still muted, autoplay was blocked
+                setTimeout(() => {
+                  try {
+                    if (event.target.isMuted && event.target.isMuted()) {
+                      setNeedsUserGesture(true);
+                    }
+                  } catch { /* ignore */ }
+                }, 800);
               } catch {
                 // ignore
               }
@@ -1793,6 +1804,39 @@ useEffect(() => {
 
   return (
     <div className="w-full max-w-xl mx-auto relative">
+      {/* Tap-to-Play overlay — shown when browser blocks autoplay audio */}
+      {needsUserGesture && (
+        <div
+          onClick={() => {
+            userInteractedRef.current = true;
+            setNeedsUserGesture(false);
+            try {
+              if (playerRef.current) {
+                playerRef.current.unMute();
+                playerRef.current.setVolume(100);
+                playerRef.current.playVideo();
+              }
+            } catch { /* ignore */ }
+          }}
+          className="absolute inset-0 z-50 flex items-center justify-center cursor-pointer rounded-[26px] sm:rounded-full"
+          style={{
+            background: 'rgba(0,0,0,0.55)',
+            backdropFilter: 'blur(4px)',
+            WebkitBackdropFilter: 'blur(4px)',
+          }}
+        >
+          <div className="flex flex-col items-center gap-2 select-none">
+            <div
+              className="w-14 h-14 rounded-full flex items-center justify-center"
+              style={{ background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.3)' }}
+            >
+              <Play className="w-6 h-6 text-white fill-white ml-1" />
+            </div>
+            <span className="text-white text-[13px] font-semibold tracking-wide">Tap to Play</span>
+            <span className="text-white/50 text-[11px]">Browser blocked autoplay</span>
+          </div>
+        </div>
+      )}
       {/* Loving Heart Burst Particles (Appears for 5.5s on favorite click only) */}
       <ParticleCanvas burstTrigger={burstTrigger} />
 
