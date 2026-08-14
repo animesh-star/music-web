@@ -4,6 +4,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://phoenix-play.vercel.app"),
   title: "Phoenix Play • Retro Audio Vibe",
   description: "A single-page music experience. Listen to lofi monsoon cafe beats, 90s street radio cassettes, and midnight synthwave.",
   openGraph: {

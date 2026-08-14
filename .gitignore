@@ -26,3 +26,7 @@ Thumbs.db
 # IDE files
 .vscode/
 .idea/
+
+# Tooling / Local agent helpers
+get-shit-done/
+ralph/

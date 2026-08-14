@@ -45,7 +45,9 @@ interface YTPlayer {
   getCurrentTime: () => number;
   getDuration: () => number;
   getPlayerState: () => number;
+  mute: () => void;
   unMute: () => void;
+  isMuted?: () => boolean;
   setVolume: (volume: number) => void;
   loadVideoById: (args: string | { videoId: string; startSeconds?: number }) => void;
   cueVideoById: (args: string | { videoId: string; startSeconds?: number }) => void;
@@ -813,20 +815,25 @@ export default function Player({
 }) {
   const [currentPlaylistId, setCurrentPlaylistId] = useState<string>("lofi-monsoon");
   const [trackIndex, setTrackIndex] = useState<number>(0);
-  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [currentTime, setCurrentTime] = useState<number>(0);
   const [duration, setDuration] = useState<number>(180);
   const [showMusicList, setShowMusicList] = useState<boolean>(false);
   const [isHydrated, setIsHydrated] = useState<boolean>(false);
   // In production, skip local audio and go straight to YouTube
   const [useYtFallback, setUseYtFallback] = useState<boolean>(IS_PRODUCTION);
+  const useYtFallbackRef = useRef<boolean>(IS_PRODUCTION);
+
+  useEffect(() => {
+    useYtFallbackRef.current = useYtFallback;
+  }, [useYtFallback]);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const playerRef = useRef<YTPlayer | null>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastLoadedYtVideoId = useRef<string | null>(null);
   const musicListRef = useRef<HTMLDivElement | null>(null);
-  const globalIframeId = "yt-player-global-container";
+  const iframeWrapperRef = useRef<HTMLDivElement | null>(null);
 
   // Per-playlist playback memory store (remembers last track & exact timestamp for Scene A, B, C)
   const playlistStatesRef = useRef<Record<string, { trackIndex: number; currentTime: number }>>({
@@ -843,10 +850,15 @@ export default function Player({
       try {
         const savedPlaylistId = localStorage.getItem("phoenix_active_playlist_id");
         const savedStates = localStorage.getItem("phoenix_playlist_states");
+        const savedFavs = localStorage.getItem("phoenix_favorite_tracks");
 
         if (savedStates) {
           const parsed = JSON.parse(savedStates);
           playlistStatesRef.current = { ...playlistStatesRef.current, ...parsed };
+        }
+
+        if (savedFavs) {
+          setFavorites(JSON.parse(savedFavs));
         }
 
         if (savedPlaylistId && PLAYLISTS.some((p) => p.id === savedPlaylistId)) {
@@ -869,6 +881,13 @@ export default function Player({
   const currentPlaylist = PLAYLISTS.find((p) => p.id === currentPlaylistId) || PLAYLISTS[0];
   const currentTrack = currentPlaylist.tracks[trackIndex] || currentPlaylist.tracks[0];
 
+  // Sync duration with current track metadata
+  useEffect(() => {
+    if (currentTrack?.duration) {
+      setDuration(currentTrack.duration);
+    }
+  }, [currentTrack.id, currentTrack.duration]);
+
   // Broadcast scene changes and persist active playlist ID
   useEffect(() => {
     if (onSceneChange) {
@@ -882,7 +901,7 @@ export default function Player({
   // Flush exact playback position to localStorage on browser refresh / page unload
   useEffect(() => {
     const handleBeforeUnload = () => {
-      const activeTime = audioRef.current ? audioRef.current.currentTime : currentTime;
+      const activeTime = !useYtFallbackRef.current && audioRef.current ? audioRef.current.currentTime : currentTime;
       if (isFinite(activeTime) && activeTime > 0) {
         playlistStatesRef.current[currentPlaylistId] = {
           trackIndex,
@@ -922,7 +941,7 @@ export default function Player({
     initialSeekTimeRef.current = 0;
     setIsPlaying(true);
 
-    if (playerRef.current && targetTrack) {
+    if (useYtFallbackRef.current && playerRef.current && targetTrack) {
       try {
         playerRef.current.unMute();
         playerRef.current.setVolume(100);
@@ -955,7 +974,7 @@ export default function Player({
     initialSeekTimeRef.current = 0;
     setIsPlaying(true);
 
-    if (playerRef.current && targetTrack) {
+    if (useYtFallbackRef.current && playerRef.current && targetTrack) {
       try {
         playerRef.current.unMute();
         playerRef.current.setVolume(100);
@@ -976,8 +995,8 @@ export default function Player({
       await loadYouTubeAPI();
       if (isCancelled || !window.YT || !window.YT.Player) return;
 
-      const targetElem = document.getElementById(globalIframeId);
-      if (!targetElem) return;
+      const wrapper = iframeWrapperRef.current;
+      if (!wrapper) return;
 
       if (playerRef.current) {
         try {
@@ -985,15 +1004,21 @@ export default function Player({
         } catch {
           // ignore cleanup
         }
+        playerRef.current = null;
       }
+
+      wrapper.innerHTML = "";
+      const targetElem = document.createElement("div");
+      targetElem.id = "yt-player-inner-div";
+      wrapper.appendChild(targetElem);
 
       const startSec = Math.floor(initialSeekTimeRef.current || 0);
 
-      playerRef.current = new window.YT.Player(globalIframeId, {
+      playerRef.current = new window.YT.Player(targetElem, {
         videoId: currentTrack.videoId,
         playerVars: {
-          autoplay: 1,
-          mute: 0,
+          autoplay: useYtFallbackRef.current ? 1 : 0,
+          mute: useYtFallbackRef.current ? 0 : 1,
           enablejsapi: 1,
           playsinline: 1,
           origin: typeof window !== "undefined" ? window.location.origin : "",
@@ -1018,17 +1043,31 @@ export default function Player({
               initialSeekTimeRef.current = 0;
             }
             lastLoadedYtVideoId.current = currentTrack.videoId;
-            setIsPlaying(true);
-            try {
-              event.target.playVideo();
-              event.target.unMute();
-              event.target.setVolume(100);
-            } catch {
-              // ignore
+
+            // Only unmute and play YouTube if YouTube fallback is active!
+            if (useYtFallbackRef.current) {
+              setIsPlaying(true);
+              try {
+                event.target.unMute();
+                event.target.setVolume(100);
+                event.target.playVideo();
+              } catch {
+                // ignore
+              }
+            } else {
+              try {
+                event.target.mute();
+                event.target.pauseVideo();
+              } catch {
+                // ignore
+              }
             }
           },
           onStateChange: (event) => {
             if (isCancelled) return;
+            // Ignore YouTube player state events if HTML5 audio is the active player
+            if (!useYtFallbackRef.current) return;
+
             if (event.data === window.YT?.PlayerState.PLAYING) {
               setIsPlaying(true);
               try {
@@ -1045,7 +1084,7 @@ export default function Player({
             }
           },
           onError: (event) => {
-            if (isCancelled) return;
+            if (isCancelled || !useYtFallbackRef.current) return;
             try {
               trackAnalytics("youtube_video_error", {
                 code: event.data,
@@ -1074,7 +1113,19 @@ export default function Player({
   // Global Autoplay Resume: unlocks audio on ANY first click/touch/keypress on the site if browser blocked initial autoplay
   useEffect(() => {
     const unlockAudio = () => {
-      if (playerRef.current && typeof playerRef.current.playVideo === "function") {
+      if (!useYtFallbackRef.current && audioRef.current) {
+        if (audioRef.current.paused) {
+          audioRef.current.play().then(() => {
+            setIsPlaying(true);
+            window.removeEventListener("pointerdown", unlockAudio);
+            window.removeEventListener("touchstart", unlockAudio);
+            window.removeEventListener("click", unlockAudio);
+            window.removeEventListener("keydown", unlockAudio);
+          }).catch(() => {
+            // ignore
+          });
+        }
+      } else if (useYtFallbackRef.current && playerRef.current && typeof playerRef.current.playVideo === "function") {
         try {
           playerRef.current.unMute();
           playerRef.current.setVolume(100);
@@ -1082,6 +1133,8 @@ export default function Player({
           setIsPlaying(true);
           // Only remove listener once player has successfully unlocked
           window.removeEventListener("pointerdown", unlockAudio);
+          window.removeEventListener("touchstart", unlockAudio);
+          window.removeEventListener("click", unlockAudio);
           window.removeEventListener("keydown", unlockAudio);
         } catch {
           // ignore
@@ -1090,22 +1143,72 @@ export default function Player({
     };
 
     window.addEventListener("pointerdown", unlockAudio);
+    window.addEventListener("touchstart", unlockAudio, { passive: true });
+    window.addEventListener("click", unlockAudio);
     window.addEventListener("keydown", unlockAudio);
     return () => {
       window.removeEventListener("pointerdown", unlockAudio);
+      window.removeEventListener("touchstart", unlockAudio);
+      window.removeEventListener("click", unlockAudio);
       window.removeEventListener("keydown", unlockAudio);
     };
   }, []);
 
+  // Synchronize state when switching between HTML5 audio and YouTube fallback
+  useEffect(() => {
+    if (useYtFallback) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.removeAttribute("src");
+        audioRef.current.load();
+      }
+      if (playerRef.current) {
+        try {
+          playerRef.current.unMute();
+          playerRef.current.setVolume(100);
+          const activeTime = currentTime > 0 ? currentTime : initialSeekTimeRef.current;
+          if (lastLoadedYtVideoId.current !== currentTrack.videoId) {
+            if (activeTime > 0) {
+              playerRef.current.loadVideoById({ videoId: currentTrack.videoId, startSeconds: Math.floor(activeTime) });
+            } else {
+              playerRef.current.loadVideoById(currentTrack.videoId);
+            }
+            lastLoadedYtVideoId.current = currentTrack.videoId;
+          } else if (activeTime > 0) {
+            playerRef.current.seekTo(activeTime, true);
+          }
+          if (isPlaying) {
+            playerRef.current.playVideo();
+          }
+        } catch {
+          // ignore
+        }
+      }
+    } else {
+      if (playerRef.current) {
+        try {
+          playerRef.current.mute();
+          playerRef.current.pauseVideo();
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }, [useYtFallback]);
+
   // HTML5 Audio element setup & handling (dev only — production uses YouTube)
   useEffect(() => {
-    // Skip HTML5 audio in production; YouTube iframe handles everything
-    if (IS_PRODUCTION) return;
+    // Skip HTML5 audio in production or when YouTube fallback is active
+    if (IS_PRODUCTION || useYtFallback) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      return;
+    }
 
-    const audio = new Audio();
+    const audio = audioRef.current || new Audio();
     audioRef.current = audio;
     audio.preload = "auto";
-    setUseYtFallback(false);
 
     // Try webm audio first, fallback to mp3
     audio.src = `/audio/${currentTrack.videoId}.webm`;
@@ -1119,6 +1222,17 @@ export default function Player({
         const seekTo = Math.min(initialSeekTimeRef.current, (audio.duration || 86400) - 1);
         audio.currentTime = Math.max(0, seekTo);
         initialSeekTimeRef.current = 0;
+      }
+      if (isPlaying) {
+        audio.play().catch(() => {
+          // Browser autoplay policy might wait for first interaction
+        });
+      }
+    };
+
+    const handleCanPlay = () => {
+      if (isPlaying && audio.paused) {
+        audio.play().catch(() => {});
       }
     };
 
@@ -1147,30 +1261,36 @@ export default function Player({
       // If webm fails, try mp3 or switch to YT fallback
       if (audio.src.endsWith(".webm")) {
         audio.src = `/audio/${currentTrack.videoId}.mp3`;
+        if (isPlaying) {
+          audio.play().catch(() => {
+            setUseYtFallback(true);
+          });
+        }
       } else {
         setUseYtFallback(true);
       }
     };
 
     audio.addEventListener("loadedmetadata", handleLoadedMetadata);
+    audio.addEventListener("canplay", handleCanPlay);
     audio.addEventListener("timeupdate", handleTimeUpdate);
     audio.addEventListener("ended", handleEnded);
     audio.addEventListener("error", handleError);
 
     if (isPlaying) {
       audio.play().catch(() => {
-        setUseYtFallback(true);
+        // Will resume on metadata / canplay or on first user gesture
       });
     }
 
     return () => {
-      audio.pause();
       audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      audio.removeEventListener("canplay", handleCanPlay);
       audio.removeEventListener("timeupdate", handleTimeUpdate);
       audio.removeEventListener("ended", handleEnded);
       audio.removeEventListener("error", handleError);
     };
-  }, [currentTrack.videoId]);
+  }, [currentTrack.videoId, useYtFallback, handleNextTrack]);
 
   // Handle Play / Pause sync
   useEffect(() => {
@@ -1187,6 +1307,8 @@ export default function Player({
           lastLoadedYtVideoId.current = currentTrack.videoId;
         }
         if (isPlaying) {
+          playerRef.current.unMute();
+          playerRef.current.setVolume(100);
           playerRef.current.playVideo();
         } else {
           playerRef.current.pauseVideo();
@@ -1240,38 +1362,34 @@ export default function Player({
   }, [useYtFallback, currentPlaylistId, trackIndex]);
 
   // User interactions
-  const handlePlayPause = () => {
-    if (!useYtFallback && audioRef.current) {
+  const handlePlayPause = useCallback(() => {
+    if (!useYtFallbackRef.current && audioRef.current) {
       if (isPlaying) {
         audioRef.current.pause();
         setIsPlaying(false);
       } else {
         audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {
           setUseYtFallback(true);
-          if (playerRef.current) {
-            playerRef.current.playVideo();
-            setIsPlaying(true);
-          }
         });
       }
     } else if (playerRef.current) {
       const state = typeof playerRef.current.getPlayerState === "function" ? playerRef.current.getPlayerState() : -1;
       const isActuallyPlaying = window.YT && state === window.YT.PlayerState.PLAYING;
-      if (isActuallyPlaying) {
+      if (isActuallyPlaying || isPlaying) {
         playerRef.current.pauseVideo();
         setIsPlaying(false);
       } else {
         try {
           playerRef.current.unMute();
           playerRef.current.setVolume(100);
+          playerRef.current.playVideo();
+          setIsPlaying(true);
         } catch {
           // ignore
         }
-        playerRef.current.playVideo();
-        setIsPlaying(true);
       }
     }
-  };
+  }, [isPlaying]);
 
   // Helper to persist playlist state snapshots to localStorage
   const savePlaylistStates = () => {
@@ -1291,7 +1409,7 @@ export default function Player({
       currentTime: seconds,
     };
     savePlaylistStates();
-    if (!useYtFallback && audioRef.current) {
+    if (!useYtFallbackRef.current && audioRef.current) {
       audioRef.current.currentTime = seconds;
     } else if (playerRef.current && typeof playerRef.current.seekTo === "function") {
       playerRef.current.seekTo(seconds, true);
@@ -1299,13 +1417,13 @@ export default function Player({
   };
 
   const handleSkipBack10 = useCallback(() => {
-    const activeTime = audioRef.current ? audioRef.current.currentTime : currentTime;
+    const activeTime = !useYtFallbackRef.current && audioRef.current ? audioRef.current.currentTime : currentTime;
     const newTime = Math.max(0, activeTime - 10);
     handleSeek(newTime);
   }, [currentTime]);
 
   const handleSkipForward10 = useCallback(() => {
-    const activeTime = audioRef.current ? audioRef.current.currentTime : currentTime;
+    const activeTime = !useYtFallbackRef.current && audioRef.current ? audioRef.current.currentTime : currentTime;
     const newTime = Math.min(duration, activeTime + 10);
     handleSeek(newTime);
   }, [currentTime, duration]);
@@ -1315,7 +1433,7 @@ export default function Player({
     if (newPlaylistId === currentPlaylistId) return;
 
     // 1. Save position of outgoing scene
-    const activeTime = audioRef.current ? audioRef.current.currentTime : currentTime;
+    const activeTime = !useYtFallbackRef.current && audioRef.current ? audioRef.current.currentTime : currentTime;
     playlistStatesRef.current[currentPlaylistId] = {
       trackIndex,
       currentTime: isFinite(activeTime) ? activeTime : 0,
@@ -1336,7 +1454,7 @@ export default function Player({
     setCurrentTime(savedState.currentTime);
     setIsPlaying(true);
 
-    if (playerRef.current && targetTrack) {
+    if (useYtFallbackRef.current && playerRef.current && targetTrack) {
       try {
         lastLoadedYtVideoId.current = targetTrack.videoId;
         playerRef.current.unMute();
@@ -1377,7 +1495,7 @@ export default function Player({
         e.preventDefault();
         handleSeek(0);
         setIsPlaying(true);
-        if (playerRef.current) {
+        if (useYtFallbackRef.current && playerRef.current) {
           try {
             playerRef.current.unMute();
             playerRef.current.setVolume(100);
@@ -1437,17 +1555,7 @@ export default function Player({
     };
   }, [showMusicList]);
 
-  const [favorites, setFavorites] = useState<Record<string, boolean>>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("phoenix_favorite_tracks");
-        if (saved) return JSON.parse(saved);
-      } catch {
-        // ignore
-      }
-    }
-    return {};
-  });
+  const [favorites, setFavorites] = useState<Record<string, boolean>>({});
 
   const [burstTrigger, setBurstTrigger] = useState<{ x: number; y: number; id: number } | null>(null);
 
@@ -1489,9 +1597,9 @@ export default function Player({
       {/* Loving Heart Burst Particles (Appears for 5.5s on favorite click only) */}
       <ParticleCanvas burstTrigger={burstTrigger} />
 
-      {/* Hidden single persistent YouTube iframe element (positioned in-viewport so browser never throttles audio) */}
+      {/* Hidden single persistent YouTube iframe element wrapper (positioned in-viewport so browser never throttles audio) */}
       <div
-        id={globalIframeId}
+        ref={iframeWrapperRef}
         className="fixed bottom-0 right-0 w-px h-px opacity-[0.001] pointer-events-none z-[-1]"
       />
 
@@ -1533,7 +1641,7 @@ export default function Player({
                     initialSeekTimeRef.current = 0;
                     setIsPlaying(true);
                     lastLoadedYtVideoId.current = tr.videoId;
-                    if (playerRef.current) {
+                    if (useYtFallbackRef.current && playerRef.current) {
                       try {
                         playerRef.current.unMute();
                         playerRef.current.setVolume(100);
