@@ -1834,16 +1834,16 @@ useEffect(() => {
 
   return (
     <div className="w-full max-w-xl mx-auto relative">
-      {/* Sound unlock badge — always shown on first load until user interacts */}
+      {/* Sound unlock badge — always shown on first load until user interacts, fixed at bottom for safety on mobile/desktop */}
       {needsUnlock && (
         <div
-          className="absolute -top-11 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 rounded-full cursor-pointer select-none"
+          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-2 px-5 py-2.5 rounded-full cursor-pointer select-none active:scale-95 transition-transform"
           style={{
-            background: 'rgba(0,0,0,0.80)',
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)',
-            border: '1px solid rgba(255,255,255,0.18)',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
+            background: 'rgba(15, 15, 20, 0.90)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            border: '1px solid rgba(255,255,255,0.2)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
           }}
           onClick={() => {
             try {
@@ -1858,7 +1858,7 @@ useEffect(() => {
           }}
         >
           <span className="text-lg">🔇</span>
-          <span className="text-white text-[12px] font-semibold">Click for sound</span>
+          <span className="text-white text-[13px] font-semibold tracking-wide">Tap anywhere for sound</span>
         </div>
       )}
       {/* Loving Heart Burst Particles (Appears for 5.5s on favorite click only) */}
