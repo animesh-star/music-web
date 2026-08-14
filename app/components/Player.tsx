@@ -1411,6 +1411,39 @@ export default function Player({
     }
   }, [currentTrack.id, currentTrack.duration]);
 
+  // Fetch Synced Lyrics from LRCLIB
+  useEffect(() => {
+    if (!currentTrack) return;
+    setLyrics([]);
+
+    const cleanTitle = currentTrack.title.split("(")[0].split("-")[0].trim();
+    const cleanArtist = currentTrack.artist.split(",")[0].split("&")[0].trim();
+
+    fetch(`https://lrclib.net/api/search?track_name=${encodeURIComponent(cleanTitle)}&artist_name=${encodeURIComponent(cleanArtist)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.length > 0) {
+          const match = data.find((d: any) => d.syncedLyrics) || data[0];
+          if (match && match.syncedLyrics) {
+            const lines = match.syncedLyrics.split("\n");
+            const parsed = lines
+              .map((line: string) => {
+                const m = line.match(/^\[(\d+):(\d+\.\d+)\](.*)/);
+                if (m) {
+                  const mins = parseInt(m[1], 10);
+                  const secs = parseFloat(m[2]);
+                  return { time: mins * 60 + secs, text: m[3].trim() };
+                }
+                return null;
+              })
+              .filter(Boolean);
+            setLyrics(parsed as any);
+          }
+        }
+      })
+      .catch((err) => console.error("LRCLIB Fetch Error:", err));
+  }, [currentTrack?.id, currentTrack?.title, currentTrack?.artist]);
+
   // Broadcast scene changes and persist active playlist ID
   useEffect(() => {
     if (onSceneChange) {
