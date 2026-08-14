@@ -1323,18 +1323,55 @@ export default function Player({
     }
   }, [currentTrack.id, currentTrack.duration]);
 
+
+  // Resolve videoId dynamically for search tracks that don't have videoId or audioUrl
+  useEffect(() => {
+    if (!currentTrack || currentTrack.audioUrl || currentTrack.videoId) return;
+
+    fetch(`/api/youtube-search?q=${encodeURIComponent(currentTrack.title + " " + currentTrack.artist)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.videoId) {
+          currentTrack.videoId = data.videoId;
+          if (playerRef.current && isPlaying) {
+            playerRef.current.loadVideoById(data.videoId);
+            playerRef.current.playVideo();
+          }
+        } else {
+          fetch(`https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(currentTrack.title + " " + currentTrack.artist)}&filter=music_songs`)
+            .then((res) => res.json())
+            .then((pipedData) => {
+              if (pipedData && pipedData.items && pipedData.items[0]) {
+                const vid = pipedData.items[0].url.split("v=")[1];
+                currentTrack.videoId = vid;
+                if (playerRef.current && isPlaying) {
+                  playerRef.current.loadVideoById(vid);
+                  playerRef.current.playVideo();
+                }
+              }
+            })
+            .catch(() => {});
+        }
+      })
+      .catch(() => {});
+  }, [currentTrack?.id, isPlaying]);
+
   // Fetch Live Synced Lyrics from LRCLIB API
   useEffect(() => {
     if (!currentTrack) return;
     setLyrics([]);
     
-    const cleanTitle = currentTrack.title.split("(")[0].split("-")[0].trim();
-    const cleanArtist = currentTrack.artist.split(",")[0].split("&")[0].trim();
+    const cleanTitle = currentTrack.title.replace(/\[.*?\]|\(.*?\)/g, "").trim();
+    const cleanArtist = currentTrack.artist.replace(/Unknown/i, "").split(",")[0].split("&")[0].trim();
 
-    fetch(`https://lrclib.net/api/search?track_name=${encodeURIComponent(cleanTitle)}&artist_name=${encodeURIComponent(cleanArtist)}`)
+    const searchUrl = cleanArtist
+      ? `https://lrclib.net/api/search?track_name=${encodeURIComponent(cleanTitle)}&artist_name=${encodeURIComponent(cleanArtist)}`
+      : `https://lrclib.net/api/search?q=${encodeURIComponent(cleanTitle)}`;
+
+    fetch(searchUrl)
       .then((res) => res.json())
       .then((data) => {
-        if (data && data.length > 0) {
+        if (Array.isArray(data) && data.length > 0) {
           const match = data.find((d: any) => d.syncedLyrics) || data[0];
           if (match && match.syncedLyrics) {
             const lines = match.syncedLyrics.split("\n");
@@ -1350,6 +1387,14 @@ export default function Player({
               })
               .filter(Boolean);
             setLyrics(parsed as { time: number; text: string }[]);
+          } else if (match && match.plainLyrics) {
+            const lines = match.plainLyrics.split("\n").filter((l: string) => l.trim().length > 0);
+            const step = (currentTrack.duration || 180) / Math.max(lines.length, 1);
+            const parsed = lines.map((text: string, idx: number) => ({
+              time: idx * step,
+              text: text.trim()
+            }));
+            setLyrics(parsed);
           }
         }
       })
@@ -1773,11 +1818,30 @@ export default function Player({
     }
   }, [useYtFallback]);
 
-  // HTML5 Audio element setup & handling (dev only — production uses YouTube)
+  // HTML5 Audio element setup & handling (plays direct audioUrl or local audio)
   useEffect(() => {
-    // Skip HTML5 audio in production or when YouTube fallback is active
+    // Handle direct audioUrl (e.g. from search results) regardless of production/ytFallback
+    if (currentTrack?.audioUrl) {
+      if (playerRef.current) {
+        try { playerRef.current.pauseVideo(); } catch {}
+      }
+      const audio = audioRef.current || new Audio();
+      audioRef.current = audio;
+      if (audio.src !== currentTrack.audioUrl) {
+        audio.src = currentTrack.audioUrl;
+        audio.currentTime = 0;
+      }
+      if (isPlaying) {
+        audio.play().catch(e => console.error("Audio playback error:", e));
+      } else {
+        audio.pause();
+      }
+      return;
+    }
+
+    // Skip HTML5 audio when YouTube fallback is active for videoId tracks
     if (IS_PRODUCTION || useYtFallback) {
-      if (audioRef.current) {
+      if (audioRef.current && !currentTrack?.audioUrl) {
         audioRef.current.pause();
       }
       return;
