@@ -663,7 +663,7 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
         />
 
         {/* Time Counters */}
-        <div className="flex justify-between items-center text-[10.5px] text-white/60 font-mono tabular-nums">
+        <div className="flex justify-between items-center text-[12px] text-white font-bold font-mono tabular-nums">
           <span>{formatTime(currentTime)}</span>
           <span>{formatTime(duration)}</span>
         </div>
@@ -821,9 +821,9 @@ const MobilePlayer = React.memo(function MobilePlayer({
 
       {/* Row 3: Elapsed/Duration on left, Transport centered */}
       <div className="flex items-center justify-between min-w-0 pt-0.5">
-        <div className="text-[10.5px] text-white/60 font-mono tabular-nums flex flex-col">
+        <div className="text-[12px] text-white font-bold font-mono tabular-nums flex flex-col leading-tight">
           <span>{formatTime(currentTime)}</span>
-          <span className="text-white/40">{formatTime(duration)}</span>
+          <span className="text-white/70">{formatTime(duration)}</span>
         </div>
 
         <div className="flex-1 flex justify-center">
@@ -1548,7 +1548,8 @@ useEffect(() => {
   // User interactions
   const handlePlayPause = useCallback(() => {
     if (!useYtFallbackRef.current && audioRef.current) {
-      if (isPlaying) {
+      const isAudioPlaying = !audioRef.current.paused && audioRef.current.currentTime > 0;
+      if (isAudioPlaying) {
         userPausedRef.current = true;
         audioRef.current.pause();
         setIsPlaying(false);
@@ -1561,7 +1562,7 @@ useEffect(() => {
     } else if (playerRef.current) {
       const state = typeof playerRef.current.getPlayerState === "function" ? playerRef.current.getPlayerState() : -1;
       const isActuallyPlaying = window.YT && state === window.YT.PlayerState.PLAYING;
-      if (isActuallyPlaying || isPlaying) {
+      if (isActuallyPlaying) {
         userPausedRef.current = true;
         playerRef.current.pauseVideo();
         setIsPlaying(false);
@@ -1577,7 +1578,7 @@ useEffect(() => {
         }
       }
     }
-  }, [isPlaying]);
+  }, []);
 
   // Helper to persist playlist state snapshots to localStorage
   const savePlaylistStates = () => {
@@ -1905,7 +1906,7 @@ useEffect(() => {
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className={`text-xs font-mono w-5 text-center ${isActive ? "text-rose-400 font-bold" : "text-white/40"}`}>
+                    <span className={`text-xs font-bold font-mono w-5 text-center ${isActive ? "text-rose-400" : "text-white/80"}`}>
                       {isActive ? (
                         <Music className="w-3.5 h-3.5 animate-pulse text-rose-400 inline" />
                       ) : (
@@ -1922,7 +1923,7 @@ useEffect(() => {
                     </div>
                   </div>
 
-                  <span className="text-[11px] font-mono text-white/40 shrink-0 ml-2">
+                  <span className="text-[12px] font-bold font-mono text-white/80 shrink-0 ml-2">
                     {formatTime(tr.duration)}
                   </span>
                 </button>
