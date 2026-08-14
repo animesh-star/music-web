@@ -53,20 +53,13 @@ export default function MainScene() {
         </div>
       </header>
 
-      {/* Subtitle / Ambient Heading & Centered Player in the Middle */}
-      <main className="flex-1 flex flex-col items-center justify-center py-6 px-4 text-center select-none z-10 w-full max-w-xl mx-auto min-h-0">
-        <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold tracking-tight text-white/95 drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)] font-sans">
-          PHOENIX<span className="text-rose-500 font-extrabold ml-1">.PLAY</span>
-        </h1>
-        <p className="mt-1.5 mb-6 text-xs md:text-sm text-white/70 max-w-md backdrop-blur-md bg-black/20 px-3.5 py-1 rounded-full border border-white/10 shadow-lg pointer-events-none">
-          Press play to stream retro memories & golden era vibes
-        </p>
-
-        {/* 4. The player, centered in the middle */}
+      {/* Centered Player in the exact middle of the screen */}
+      <section className="flex-1 flex flex-col items-center justify-center p-4 select-none z-10 w-full max-w-xl mx-auto min-h-0">
+        {/* The player, centered in the middle */}
         <div className="w-full pointer-events-auto">
           <Player onSceneChange={(cls) => setActiveSceneClass(cls)} />
         </div>
-      </main>
+      </section>
     </>
   );
 }
