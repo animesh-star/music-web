@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Play, Pause, SkipBack, SkipForward, Disc, Layers, RotateCcw, RotateCw, Heart, ListMusic, X, Music, Shuffle, Repeat, Repeat1, Mic } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Disc, Layers, RotateCcw, RotateCw, Heart, ListMusic, X, Music, Shuffle, Repeat, Repeat1 } from "lucide-react";
 import { PLAYLISTS, Track, Playlist } from "../data/playlists";
 import { track as trackAnalytics } from "@vercel/analytics";
 
@@ -596,9 +596,6 @@ interface DesktopPlayerProps {
   onToggleShuffle: () => void;
   repeatMode: 0 | 1 | 2;
   onToggleRepeat: () => void;
-  showLyrics: boolean;
-  onToggleLyrics: () => void;
-  lyrics: {time: number, text: string}[];
 }
 
 const DesktopPlayer = React.memo(function DesktopPlayer({
@@ -632,9 +629,9 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
   onToggleShuffle,
   repeatMode,
   onToggleRepeat,
-  showLyrics,
-  onToggleLyrics,
-  lyrics,
+  
+  
+  
 }: DesktopPlayerProps) {
   return (
     <>
@@ -708,16 +705,6 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
               </select>
             </div>
 
-            <button
-              onClick={onToggleLyrics}
-              className={`p-1.5 rounded-full border border-white/10 transition-all cursor-pointer ${
-                showLyrics ? "bg-[#1DB954] text-black shadow-[0_0_12px_rgba(29,185,84,0.6)]" : "bg-white/10 hover:bg-white/15 text-white/80 hover:text-white"
-              }`}
-              title="Live Synced Lyrics"
-              aria-label="Toggle Lyrics"
-            >
-              <Mic className="w-3.5 h-3.5" />
-            </button>
 
             <button
               onClick={onToggleMusicList}
@@ -765,44 +752,7 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
         />
       </div>
     </div>
-    {/* Fullscreen Lyrics Overlay */}
-    {showLyrics && (
-      <div className="absolute inset-0 z-50 bg-black/85 backdrop-blur-3xl rounded-[32px] sm:rounded-[40px] overflow-hidden flex flex-col items-center justify-center p-6 transition-all duration-500 ease-out">
-         <button onClick={onToggleLyrics} className="absolute top-6 right-6 text-white/50 hover:text-white cursor-pointer z-50 p-2 bg-black/20 rounded-full hover:bg-white/10 transition-colors">
-           <X className="w-6 h-6" />
-         </button>
-         <div 
-            className="w-full h-full max-w-2xl overflow-y-auto no-scrollbar flex flex-col gap-6 pt-[40vh] pb-[40vh] text-center scroll-smooth" 
-            style={{ maskImage: "linear-gradient(to bottom, transparent, black 15%, black 85%, transparent)" }}
-            ref={(el) => {
-               if (el) {
-                 const activeEl = el.querySelector('.active-lyric');
-                 if (activeEl) {
-                    activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                 }
-               }
-            }}
-         >
-           {lyrics.length > 0 ? lyrics.map((line, i) => {
-             const isActive = currentTime >= line.time && (i === lyrics.length - 1 || currentTime < lyrics[i+1].time);
-             const isPast = currentTime >= line.time;
-             return (
-               <p 
-                 key={i} 
-                 className={`text-2xl md:text-4xl font-bold transition-all duration-500 cursor-pointer ${isActive ? "active-lyric text-white scale-110 drop-shadow-[0_0_15px_rgba(255,255,255,0.4)]" : isPast ? "text-white/40" : "text-white/20 blur-[1px]"}`}
-               >
-                 {line.text || "♪"}
-               </p>
-             )
-           }) : (
-             <div className="flex flex-col items-center justify-center h-full gap-4 text-white/50 animate-pulse">
-               <Mic className="w-12 h-12 mb-2 opacity-20" />
-               <p className="text-xl">Searching LRCLIB for lyrics...</p>
-             </div>
-           )}
-         </div>
-      </div>
-    )}
+
     
     {/* Global Search Bar */}
     <div className="mt-3 w-full max-w-xl mx-auto relative">
@@ -882,9 +832,6 @@ interface MobilePlayerProps {
   onToggleShuffle: () => void;
   repeatMode: 0 | 1 | 2;
   onToggleRepeat: () => void;
-  showLyrics: boolean;
-  onToggleLyrics: () => void;
-  lyrics: {time: number, text: string}[];
 }
 
 const MobilePlayer = React.memo(function MobilePlayer({
@@ -918,9 +865,9 @@ const MobilePlayer = React.memo(function MobilePlayer({
   onToggleShuffle,
   repeatMode,
   onToggleRepeat,
-  showLyrics,
-  onToggleLyrics,
-  lyrics,
+  
+  
+  
 }: MobilePlayerProps) {
   return (
     <>
@@ -990,16 +937,6 @@ const MobilePlayer = React.memo(function MobilePlayer({
             </div>
 
             <div className="flex items-center gap-1">
-              <button
-                onClick={onToggleLyrics}
-                className={`px-2 py-0.5 rounded-md border border-white/10 text-[10.5px] font-medium flex items-center gap-1 transition-all ${
-                  showLyrics ? "bg-[#1DB954] text-black shadow-[0_0_10px_rgba(29,185,84,0.5)]" : "bg-black/30 hover:bg-black/40 text-white/80"
-                }`}
-                title="Live Lyrics"
-              >
-                <Mic className="w-3 h-3" />
-                <span>Lyrics</span>
-              </button>
 
               <button
                 onClick={onToggleMusicList}
@@ -1053,44 +990,6 @@ const MobilePlayer = React.memo(function MobilePlayer({
         <div className="w-4" />
       </div>
 
-    {/* Fullscreen Lyrics Overlay */}
-    {showLyrics && (
-      <div className="absolute inset-0 z-50 bg-black/85 backdrop-blur-3xl rounded-[32px] sm:rounded-[40px] overflow-hidden flex flex-col items-center justify-center p-6 transition-all duration-500 ease-out">
-         <button onClick={onToggleLyrics} className="absolute top-6 right-6 text-white/50 hover:text-white cursor-pointer z-50 p-2 bg-black/20 rounded-full hover:bg-white/10 transition-colors">
-           <X className="w-6 h-6" />
-         </button>
-         <div 
-            className="w-full h-full max-w-2xl overflow-y-auto no-scrollbar flex flex-col gap-6 pt-[40vh] pb-[40vh] text-center scroll-smooth" 
-            style={{ maskImage: "linear-gradient(to bottom, transparent, black 15%, black 85%, transparent)" }}
-            ref={(el) => {
-               if (el) {
-                 const activeEl = el.querySelector('.active-lyric');
-                 if (activeEl) {
-                    activeEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                 }
-               }
-            }}
-         >
-           {lyrics.length > 0 ? lyrics.map((line, i) => {
-             const isActive = currentTime >= line.time && (i === lyrics.length - 1 || currentTime < lyrics[i+1].time);
-             const isPast = currentTime >= line.time;
-             return (
-               <p 
-                 key={i} 
-                 className={`text-2xl md:text-4xl font-bold transition-all duration-500 cursor-pointer ${isActive ? "active-lyric text-white scale-110 drop-shadow-[0_0_15px_rgba(255,255,255,0.4)]" : isPast ? "text-white/40" : "text-white/20 blur-[1px]"}`}
-               >
-                 {line.text || "♪"}
-               </p>
-             )
-           }) : (
-             <div className="flex flex-col items-center justify-center h-full gap-4 text-white/50 animate-pulse">
-               <Mic className="w-12 h-12 mb-2 opacity-20" />
-               <p className="text-xl">Searching LRCLIB for lyrics...</p>
-             </div>
-           )}
-         </div>
-      </div>
-    )}
     
       {/* Mobile Global Search Bar */}
       <div className="mt-1 w-full relative">
@@ -1161,8 +1060,8 @@ export default function Player({
   const [searchResults, setSearchResults] = useState<Track[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isLoadingPlaylist, setIsLoadingPlaylist] = useState(false);
-  const [showLyrics, setShowLyrics] = useState(false);
-  const [lyrics, setLyrics] = useState<{time: number, text: string}[]>([]);
+  const [ setShowLyrics] = useState(false);
+  const [ setLyrics] = useState<{time: number, text: string}[]>([]);
   const [isShuffle, setIsShuffle] = useState(false);
   const [repeatMode, setRepeatMode] = useState<0|1|2>(0);
   const fadeIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -1411,38 +1310,6 @@ export default function Player({
     }
   }, [currentTrack.id, currentTrack.duration]);
 
-  // Fetch Synced Lyrics from LRCLIB
-  useEffect(() => {
-    if (!currentTrack) return;
-    setLyrics([]);
-
-    const cleanTitle = currentTrack.title.split("(")[0].split("-")[0].trim();
-    const cleanArtist = currentTrack.artist.split(",")[0].split("&")[0].trim();
-
-    fetch(`https://lrclib.net/api/search?track_name=${encodeURIComponent(cleanTitle)}&artist_name=${encodeURIComponent(cleanArtist)}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data && data.length > 0) {
-          const match = data.find((d: any) => d.syncedLyrics) || data[0];
-          if (match && match.syncedLyrics) {
-            const lines = match.syncedLyrics.split("\n");
-            const parsed = lines
-              .map((line: string) => {
-                const m = line.match(/^\[(\d+):(\d+\.\d+)\](.*)/);
-                if (m) {
-                  const mins = parseInt(m[1], 10);
-                  const secs = parseFloat(m[2]);
-                  return { time: mins * 60 + secs, text: m[3].trim() };
-                }
-                return null;
-              })
-              .filter(Boolean);
-            setLyrics(parsed as any);
-          }
-        }
-      })
-      .catch((err) => console.error("LRCLIB Fetch Error:", err));
-  }, [currentTrack?.id, currentTrack?.title, currentTrack?.artist]);
 
   // Broadcast scene changes and persist active playlist ID
   useEffect(() => {
@@ -1635,7 +1502,6 @@ export default function Player({
     fadeOutAndSwitch(() => handleSelectTrack(prevIdx));
   }, [currentPlaylist.tracks.length, handleSelectTrack, trackIndex, isShuffle, fadeOutAndSwitch, currentTime]);
 
-
   const handleNextTrackRef = useRef(handleNextTrack);
   useEffect(() => {
     handleNextTrackRef.current = handleNextTrack;
@@ -1785,7 +1651,6 @@ export default function Player({
       isCancelled = true;
     };
   }, [isHydrated]);
-
 
 
   // Synchronize state when switching between HTML5 audio and YouTube fallback
@@ -2209,10 +2074,10 @@ export default function Player({
       const keyLower = e.key.toLowerCase();
 
       if (e.code === "Space") {
-        e.preventDefault();
+        if (e) e.preventDefault();
         handlePlayPause();
       } else if ((keyLower === "r" || e.code === "KeyR") && !e.ctrlKey && !e.metaKey) {
-        e.preventDefault();
+        if (e) e.preventDefault();
         handleSeek(0);
         setIsPlaying(true);
         if (useYtFallbackRef.current && playerRef.current) {
@@ -2225,28 +2090,28 @@ export default function Player({
           }
         }
       } else if (e.code === "ArrowLeft") {
-        e.preventDefault();
+        if (e) e.preventDefault();
         handleSkipBack10();
       } else if (e.code === "ArrowRight") {
-        e.preventDefault();
+        if (e) e.preventDefault();
         handleSkipForward10();
       } else if (keyLower === "n" || e.code === "KeyN") {
-        e.preventDefault();
+        if (e) e.preventDefault();
         handleNextTrack();
       } else if (keyLower === "p" || e.code === "KeyP") {
-        e.preventDefault();
+        if (e) e.preventDefault();
         handlePrevTrack();
       } else if (keyLower === "a" || e.code === "KeyA") {
-        e.preventDefault();
+        if (e) e.preventDefault();
         handleSwitchPlaylist("lofi-monsoon");
       } else if (keyLower === "b" || e.code === "KeyB") {
-        e.preventDefault();
+        if (e) e.preventDefault();
         handleSwitchPlaylist("90s-nostalgia");
       } else if (keyLower === "c" || e.code === "KeyC") {
-        e.preventDefault();
+        if (e) e.preventDefault();
         handleSwitchPlaylist("punjabi-modern");
       } else if (keyLower === "o" || e.code === "KeyO") {
-        e.preventDefault();
+        if (e) e.preventDefault();
         setShowMusicList((prev) => !prev);
       }
     };
@@ -2254,7 +2119,6 @@ export default function Player({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handlePlayPause, handleSkipBack10, handleSkipForward10, handleNextTrack, handlePrevTrack, handleSwitchPlaylist]);
-
 
 
   // Close Music List when clicking anywhere outside on the site
@@ -2281,35 +2145,7 @@ export default function Player({
 
   const [burstTrigger, setBurstTrigger] = useState<{ x: number; y: number; id: number } | null>(null);
 
-  // Fetch Live Lyrics from LRCLIB
-  useEffect(() => {
-    if (!currentTrack) return;
-    setLyrics([]);
-    
-    // Quick search against LRCLIB API
-    const trackName = currentTrack.title.split("(")[0].trim(); // Remove (feat. X) for better matches
-    fetch(`https://lrclib.net/api/search?track_name=${encodeURIComponent(trackName)}&artist_name=${encodeURIComponent(currentTrack.artist)}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.length > 0) {
-          const bestMatch = data.find((d: any) => d.syncedLyrics) || data[0];
-          if (bestMatch && bestMatch.syncedLyrics) {
-            const lines = bestMatch.syncedLyrics.split('\n');
-            const parsed = lines.map((line: string) => {
-               const match = line.match(/^\[(\d+):(\d+\.\d+)\](.*)/);
-               if (match) {
-                 const minutes = parseInt(match[1], 10);
-                 const seconds = parseFloat(match[2]);
-                 return { time: minutes * 60 + seconds, text: match[3].trim() };
-               }
-               return null;
-            }).filter(Boolean);
-            setLyrics(parsed);
-          }
-        }
-      })
-      .catch(err => console.error("LRCLIB Error:", err));
-  }, [currentTrack]);
+
 
   const handleToggleFavorite = useCallback((e: React.MouseEvent) => {
     (e.currentTarget as HTMLElement).blur();
@@ -2344,8 +2180,8 @@ export default function Player({
     });
   }, [currentTrack.id]);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
+  async function handleSearch(e?: React.FormEvent) {
+    if (e) e.preventDefault();
     if (!searchQuery.trim()) return;
     
     setIsSearching(true);
@@ -2393,7 +2229,18 @@ export default function Player({
       console.error("Universal Search error:", err);
     }
     setIsSearching(false);
-  };
+  }
+
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(() => {
+      handleSearch();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const handlePlaySearchResult = (track: Track) => {
     // We create a temporary playlist for the search result so it fits into the player's architecture
@@ -2553,9 +2400,7 @@ export default function Player({
         onToggleShuffle={() => setIsShuffle(prev => !prev)}
         repeatMode={repeatMode}
         onToggleRepeat={() => setRepeatMode(prev => (prev + 1) % 3 as 0|1|2)}
-        showLyrics={showLyrics}
-        onToggleLyrics={() => setShowLyrics(prev => !prev)}
-        lyrics={lyrics}
+        
       />
 
       {/* Mobile Player */}
@@ -2590,9 +2435,7 @@ export default function Player({
         onToggleShuffle={() => setIsShuffle(prev => !prev)}
         repeatMode={repeatMode}
         onToggleRepeat={() => setRepeatMode(prev => (prev + 1) % 3 as 0|1|2)}
-        showLyrics={showLyrics}
-        onToggleLyrics={() => setShowLyrics(prev => !prev)}
-        lyrics={lyrics}
+        
       />
     </div>
   );
