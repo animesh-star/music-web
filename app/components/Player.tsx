@@ -755,7 +755,7 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
 
     
     {/* Global Search Bar */}
-    <div className="mt-3 w-full max-w-xl mx-auto relative">
+    <div className="mt-3 w-full max-w-xl mx-auto relative search-container">
       <form onSubmit={onSearch} className="relative flex items-center">
         <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50 pointer-events-none">
            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
@@ -992,7 +992,7 @@ const MobilePlayer = React.memo(function MobilePlayer({
 
     
       {/* Mobile Global Search Bar */}
-      <div className="mt-1 w-full relative">
+      <div className="mt-1 w-full relative search-container">
         <form onSubmit={onSearch} className="relative flex items-center">
           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50 pointer-events-none">
              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
@@ -2241,6 +2241,17 @@ export default function Player({
     }, 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target && !target.closest('.search-container')) {
+        setSearchResults([]);
+      }
+    };
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, []);
 
   const handlePlaySearchResult = (track: Track) => {
     // We create a temporary playlist for the search result so it fits into the player's architecture
