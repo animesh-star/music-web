@@ -253,11 +253,19 @@ const Vinyl = React.memo(function Vinyl({
         }}
       >
         {/* Track Cover Thumbnail */}
-        <img
-          src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
-          alt="Vinyl artwork"
-          className="w-full h-full object-cover rounded-full pointer-events-none scale-125 select-none"
-        />
+        {videoId ? (
+          <img
+            src={`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`}
+            alt="Vinyl artwork"
+            className="w-full h-full object-cover rounded-full pointer-events-none scale-125 select-none"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-neutral-900 via-neutral-950 to-emerald-950 rounded-full scale-125 select-none">
+            <svg className="w-8 h-8 text-[#1DB954]" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm4.586 14.424c-.18.295-.565.387-.86.207-2.377-1.454-5.37-1.783-8.894-.982-.336.075-.668-.135-.744-.47-.076-.336.135-.668.47-.743 3.856-.88 7.15-.504 9.822 1.13.295.178.387.563.206.858zm1.225-2.72c-.227.367-.707.487-1.074.26-2.72-1.672-6.87-2.157-10.082-1.182-.413.125-.847-.107-.972-.52-.125-.413.107-.847.52-.972 3.673-1.114 8.243-.574 11.35 1.34.367.226.487.707.258 1.074zm.105-2.833C14.92 8.947 9.97 8.783 7.11 9.65c-.49.15-1.01-.13-1.16-.62-.15-.49.13-1.01.62-1.16 3.3-.998 8.75-.812 12.27 1.28.44.26.58.83.32 1.27-.26.44-.83.58-1.27.32z"/>
+            </svg>
+          </div>
+        )}
 
         {/* Vinyl Grooves Texture Overlay */}
         <div
@@ -538,6 +546,7 @@ interface DesktopPlayerProps {
   onSwitchPlaylist: (playlistId: string) => void;
   showMusicList: boolean;
   onToggleMusicList: () => void;
+  spotifyLoggedIn?: boolean;
 }
 
 const DesktopPlayer = React.memo(function DesktopPlayer({
@@ -559,6 +568,7 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
   onSwitchPlaylist,
   showMusicList,
   onToggleMusicList,
+  spotifyLoggedIn,
 }: DesktopPlayerProps) {
   return (
     <div className="hidden sm:flex items-center gap-4 w-full rounded-full p-3 pr-5 glass-pill transition-all duration-300">
@@ -616,6 +626,11 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
                     {pl.name}
                   </option>
                 ))}
+                {!spotifyLoggedIn && (
+                  <option value="connect-spotify" className="bg-neutral-900 text-[#1DB954] font-semibold">
+                    🟢 Connect Spotify
+                  </option>
+                )}
               </select>
             </div>
 
@@ -684,6 +699,7 @@ interface MobilePlayerProps {
   onSwitchPlaylist: (playlistId: string) => void;
   showMusicList: boolean;
   onToggleMusicList: () => void;
+  spotifyLoggedIn?: boolean;
 }
 
 const MobilePlayer = React.memo(function MobilePlayer({
@@ -705,6 +721,7 @@ const MobilePlayer = React.memo(function MobilePlayer({
   onSwitchPlaylist,
   showMusicList,
   onToggleMusicList,
+  spotifyLoggedIn,
 }: MobilePlayerProps) {
   return (
     <div className="flex flex-col sm:hidden gap-3.5 w-full rounded-[26px] p-4 glass-pill transition-all duration-300">
@@ -757,6 +774,11 @@ const MobilePlayer = React.memo(function MobilePlayer({
                     {pl.name}
                   </option>
                 ))}
+                {!spotifyLoggedIn && (
+                  <option value="connect-spotify" className="bg-neutral-900 text-[#1DB954] font-semibold">
+                    🟢 Connect Spotify
+                  </option>
+                )}
               </select>
             </div>
 
@@ -823,6 +845,23 @@ export default function Player({
   const [duration, setDuration] = useState<number>(180);
   const [showMusicList, setShowMusicList] = useState<boolean>(false);
   const [isHydrated, setIsHydrated] = useState<boolean>(false);
+
+  // Spotify integration state
+  const [playlists, setPlaylists] = useState<Playlist[]>(PLAYLISTS);
+  const [spotifyLoggedIn, setSpotifyLoggedIn] = useState<boolean>(false);
+
+  // Helper to read cookies on client side
+  const getCookie = useCallback((name: string): string | null => {
+    if (typeof document === "undefined") return null;
+    const nameEQ = name + "=";
+    const ca = document.cookie.split(";");
+    for (let i = 0; i < ca.length; i++) {
+      let c = ca[i];
+      while (c.charAt(0) === " ") c = c.substring(1, c.length);
+      if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+    }
+    return null;
+  }, []);
   // In production, skip local audio and go straight to YouTube
   const [useYtFallback, setUseYtFallback] = useState<boolean>(IS_PRODUCTION);
   const useYtFallbackRef = useRef<boolean>(IS_PRODUCTION);
@@ -865,7 +904,7 @@ export default function Player({
           setFavorites(JSON.parse(savedFavs));
         }
 
-        if (savedPlaylistId && PLAYLISTS.some((p) => p.id === savedPlaylistId)) {
+        if (savedPlaylistId && (PLAYLISTS.some((p) => p.id === savedPlaylistId) || savedPlaylistId === "spotify-top-tracks")) {
           const savedState = playlistStatesRef.current[savedPlaylistId];
           setCurrentPlaylistId(savedPlaylistId);
           if (savedState) {
@@ -882,7 +921,65 @@ export default function Player({
     }
   }, []);
 
-  const currentPlaylist = PLAYLISTS.find((p) => p.id === currentPlaylistId) || PLAYLISTS[0];
+  // Fetch Spotify Top Tracks if access token cookie exists
+  useEffect(() => {
+    const token = getCookie("spotify_access_token");
+    if (!token) return;
+
+    setSpotifyLoggedIn(true);
+
+    fetch("https://api.spotify.com/v1/me/top/tracks?time_range=long_term&limit=15", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then((res) => {
+        if (res.status === 401) {
+          // Token expired, delete cookie
+          document.cookie = "spotify_access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+          setSpotifyLoggedIn(false);
+          throw new Error("Spotify token expired");
+        }
+        if (!res.ok) throw new Error("Failed to fetch top tracks");
+        return res.json();
+      })
+      .then((data) => {
+        if (data.items && data.items.length > 0) {
+          const spotifyTracks: Track[] = data.items.map((item: any) => ({
+            id: `spotify-${item.id}`,
+            title: item.name,
+            artist: item.artists.map((a: any) => a.name).join(", "),
+            film: item.album.name,
+            year: parseInt(item.album.release_date?.split("-")[0]) || 2024,
+            duration: Math.floor(item.duration_ms / 1000),
+            videoId: "", // resolved dynamically on play
+          }));
+
+          const spotifyPlaylist: Playlist = {
+            id: "spotify-top-tracks",
+            name: "Spotify Top",
+            description: "Your Top Spotify Tracks",
+            sceneClass: "scene-c", // Use Scene C styling or fallback styles
+            accentColor: "#1DB954", // Spotify Green
+            tracks: spotifyTracks,
+          };
+
+          setPlaylists((prev) => {
+            if (prev.some((p) => p.id === "spotify-top-tracks")) return prev;
+            return [...prev, spotifyPlaylist];
+          });
+
+          if (!playlistStatesRef.current["spotify-top-tracks"]) {
+            playlistStatesRef.current["spotify-top-tracks"] = { trackIndex: 0, currentTime: 0 };
+          }
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load Spotify top tracks:", err);
+      });
+  }, [getCookie]);
+
+  const currentPlaylist = playlists.find((p) => p.id === currentPlaylistId) || playlists[0];
   const currentTrack = currentPlaylist.tracks[trackIndex] || currentPlaylist.tracks[0];
 
   // Sync duration with current track metadata
@@ -946,25 +1043,46 @@ export default function Player({
     initialSeekTimeRef.current = 0;
     setIsPlaying(true);
 
-    if (useYtFallbackRef.current && playerRef.current) {
-      try {
-        lastLoadedYtVideoId.current = targetTrack.videoId;
-        playerRef.current.unMute();
-        playerRef.current.setVolume(100);
-        playerRef.current.loadVideoById({
-          videoId: targetTrack.videoId,
-          startSeconds: 0,
+    const playVideo = (vid: string) => {
+      if (useYtFallbackRef.current && playerRef.current) {
+        try {
+          lastLoadedYtVideoId.current = vid;
+          playerRef.current.unMute();
+          playerRef.current.setVolume(100);
+          playerRef.current.loadVideoById({
+            videoId: vid,
+            startSeconds: 0,
+          });
+          playerRef.current.playVideo();
+        } catch {
+          // ignore
+        }
+      } else if (audioRef.current) {
+        audioRef.current.src = `/audio/${vid}.webm`;
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().catch(() => {
+          setUseYtFallback(true);
         });
-        playerRef.current.playVideo();
-      } catch {
-        // ignore
       }
-    } else if (audioRef.current) {
-      audioRef.current.src = `/audio/${targetTrack.videoId}.webm`;
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(() => {
-        setUseYtFallback(true);
-      });
+    };
+
+    if (currentPlaylistId === "spotify-top-tracks" && !targetTrack.videoId) {
+      // Resolve Spotify track query dynamically to YouTube video ID on play
+      fetch(`/api/youtube-search?q=${encodeURIComponent(targetTrack.title + " " + targetTrack.artist)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.videoId) {
+            targetTrack.videoId = data.videoId;
+            playVideo(data.videoId);
+          } else {
+            console.error("No YouTube video resolved for this Spotify track");
+          }
+        })
+        .catch((err) => {
+          console.error("Error resolving Spotify track:", err);
+        });
+    } else {
+      playVideo(targetTrack.videoId);
     }
   }, [currentPlaylist.tracks, currentPlaylistId]);
 
@@ -1475,6 +1593,11 @@ useEffect(() => {
 
   // Smooth Scene Switcher: saves current position & resumes target scene exactly where left off
   const handleSwitchPlaylist = useCallback((newPlaylistId: string) => {
+    if (newPlaylistId === "connect-spotify") {
+      window.location.href = "/api/spotify-auth";
+      return;
+    }
+
     if (newPlaylistId === currentPlaylistId) return;
 
     // 1. Save position of outgoing scene
@@ -1486,7 +1609,7 @@ useEffect(() => {
     savePlaylistStates();
 
     // 2. Fetch saved state of incoming scene
-    const targetPlaylist = PLAYLISTS.find((p) => p.id === newPlaylistId) || PLAYLISTS[0];
+    const targetPlaylist = playlists.find((p) => p.id === newPlaylistId) || playlists[0];
     const savedState = playlistStatesRef.current[newPlaylistId] || { trackIndex: 0, currentTime: 0 };
     const targetTrack = targetPlaylist.tracks[savedState.trackIndex] || targetPlaylist.tracks[0];
 
@@ -1506,17 +1629,33 @@ useEffect(() => {
         playerRef.current.unMute();
         playerRef.current.setVolume(100);
         const seek = Math.floor(savedState.currentTime || 0);
-        if (seek > 0) {
-          playerRef.current.loadVideoById({ videoId: targetTrack.videoId, startSeconds: seek });
+
+        const playSwitchedTrack = (vid: string) => {
+          if (seek > 0) {
+            playerRef.current?.loadVideoById({ videoId: vid, startSeconds: seek });
+          } else {
+            playerRef.current?.loadVideoById(vid);
+          }
+          playerRef.current?.playVideo();
+        };
+
+        if (newPlaylistId === "spotify-top-tracks" && !targetTrack.videoId) {
+          fetch(`/api/youtube-search?q=${encodeURIComponent(targetTrack.title + " " + targetTrack.artist)}`)
+            .then((res) => res.json())
+            .then((data) => {
+              if (data.videoId) {
+                targetTrack.videoId = data.videoId;
+                playSwitchedTrack(data.videoId);
+              }
+            });
         } else {
-          playerRef.current.loadVideoById(targetTrack.videoId);
+          playSwitchedTrack(targetTrack.videoId);
         }
-        playerRef.current.playVideo();
       } catch {
         // ignore
       }
     }
-  }, [currentPlaylistId, trackIndex, currentTime]);
+  }, [currentPlaylistId, trackIndex, currentTime, playlists]);
 
   // Global Keyboard Shortcuts (Space: Play/Pause, Left: -10s, Right: +10s, N: Next, P: Prev, A/B/C: Scenes)
   useEffect(() => {
@@ -1708,6 +1847,21 @@ useEffect(() => {
               );
             })}
           </div>
+
+          {/* Optional Spotify Connect banner inside the drawer */}
+          {!spotifyLoggedIn && (
+            <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-white/50 font-medium">Want to stream your own tracks?</span>
+              </div>
+              <a
+                href="/api/spotify-auth"
+                className="flex items-center gap-1.5 bg-[#1DB954] hover:bg-[#1ed760] text-white text-[11px] font-semibold px-3 py-1.5 rounded-full transition-all duration-200 active:scale-95 cursor-pointer shadow-md"
+              >
+                <span>Connect Spotify</span>
+              </a>
+            </div>
+          )}
         </div>
       )}
 
@@ -1726,11 +1880,12 @@ useEffect(() => {
         onSkipBack10={handleSkipBack10}
         onSkipForward10={handleSkipForward10}
         onSeek={handleSeek}
-        playlists={PLAYLISTS}
+        playlists={playlists}
         currentPlaylistId={currentPlaylistId}
         onSwitchPlaylist={handleSwitchPlaylist}
         showMusicList={showMusicList}
         onToggleMusicList={() => setShowMusicList((prev) => !prev)}
+        spotifyLoggedIn={spotifyLoggedIn}
       />
 
       {/* Mobile Player */}
@@ -1748,11 +1903,12 @@ useEffect(() => {
         onSkipBack10={handleSkipBack10}
         onSkipForward10={handleSkipForward10}
         onSeek={handleSeek}
-        playlists={PLAYLISTS}
+        playlists={playlists}
         currentPlaylistId={currentPlaylistId}
         onSwitchPlaylist={handleSwitchPlaylist}
         showMusicList={showMusicList}
         onToggleMusicList={() => setShowMusicList((prev) => !prev)}
+        spotifyLoggedIn={spotifyLoggedIn}
       />
     </div>
   );
