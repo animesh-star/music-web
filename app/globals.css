@@ -28,13 +28,16 @@
   animation: spin 8s linear infinite;
 }
 
-/* Glass styling recipe as requested */
+/* Glass styling recipe — frosted blur bar */
 .glass-pill {
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.055) 100%);
-  backdrop-filter: blur(40px) saturate(1.7);
-  -webkit-backdrop-filter: blur(40px) saturate(1.7);
-  box-shadow: 0 16px 48px -12px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
+  backdrop-filter: blur(72px) saturate(2) brightness(1.05);
+  -webkit-backdrop-filter: blur(72px) saturate(2) brightness(1.05);
+  box-shadow:
+    0 20px 60px -12px rgba(0, 0, 0, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.15);
 }
 
 .glass-box {
