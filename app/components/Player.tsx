@@ -665,7 +665,7 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
           <div className="min-w-0 flex items-center gap-2">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h2 className="text-sm sm:text-base font-bold text-rose-300 drop-shadow-sm leading-snug break-words tracking-tight">
+                <h2 className="text-sm sm:text-base font-bold text-rose-300 drop-shadow-sm whitespace-nowrap overflow-x-auto no-scrollbar tracking-tight">
                   {currentTrack.title}
                 </h2>
                 <button
@@ -881,7 +881,7 @@ const MobilePlayer = React.memo(function MobilePlayer({
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-1 mb-0.5">
-            <h2 className="text-xs sm:text-sm font-bold text-rose-300 drop-shadow-sm leading-snug break-words">
+            <h2 className="text-xs sm:text-sm font-bold text-rose-300 drop-shadow-sm whitespace-nowrap overflow-x-auto no-scrollbar">
               {currentTrack.title}
             </h2>
             <button
@@ -2840,13 +2840,15 @@ export default function Player({
       {/* Loving Heart Burst Particles (Appears for 5.5s on favorite click only) */}
       <ParticleCanvas burstTrigger={burstTrigger} />
 
-      {/* Now Playing Active Header Banner for 100% Title Visibility */}
+      {/* Now Playing Active Header Banner (Single Horizontal Line) */}
       {currentTrack && currentTrack.id !== "placeholder" && (
-        <div className="w-full bg-rose-500/15 border border-rose-500/30 rounded-2xl px-4 py-2 text-center backdrop-blur-xl shadow-lg animate-in fade-in slide-in-from-top-1">
-          <p className="text-[11px] text-rose-400 font-bold uppercase tracking-wider mb-0.5">🎵 Now Playing</p>
-          <p className="text-xs sm:text-sm font-bold text-white leading-snug break-words">
-            {currentTrack.title} <span className="text-rose-300 font-medium">• {currentTrack.artist}</span>
-          </p>
+        <div className="w-full bg-rose-500/15 border border-rose-500/30 rounded-2xl px-4 py-2 text-center backdrop-blur-xl shadow-lg animate-in fade-in slide-in-from-top-1 overflow-hidden whitespace-nowrap">
+          <div className="flex items-center justify-center gap-2 whitespace-nowrap overflow-x-auto no-scrollbar">
+            <span className="text-[11px] text-rose-400 font-bold uppercase tracking-wider shrink-0">🎵 NOW PLAYING:</span>
+            <span className="text-xs sm:text-sm font-bold text-white whitespace-nowrap">
+              {currentTrack.title} <span className="text-rose-300 font-semibold">• {currentTrack.artist} {currentTrack.film ? `(${currentTrack.film})` : ""}</span>
+            </span>
+          </div>
         </div>
       )}
 

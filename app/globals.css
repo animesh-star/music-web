@@ -100,5 +100,14 @@ body {
   -webkit-user-select: none;
 }
 
+/* Hide scrollbars for clean horizontal line text flow */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 
 
