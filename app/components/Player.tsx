@@ -924,12 +924,14 @@ const MobilePlayer = React.memo(function MobilePlayer({
               </select>
             </div>
 
-            <div className="flex items-center gap-1">
-
+            <div className="flex">
               <button
+                type="button"
                 onClick={onToggleMusicList}
-                className={`px-2 py-0.5 rounded-md border border-white/10 text-[10.5px] font-medium flex items-center gap-1 transition-all ${
-                  showMusicList ? "bg-white/25 text-white" : "bg-black/30 hover:bg-black/40 text-white/80"
+                className={`music-list-toggle-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all duration-200 cursor-pointer shadow-sm ${
+                  showMusicList
+                    ? "bg-white/20 border-white/40 text-white shadow-md scale-105"
+                    : "bg-white/10 border-white/20 text-white/90 hover:bg-white/15 hover:border-white/30"
                 }`}
               >
                 <ListMusic className="w-3 h-3" />
@@ -2518,6 +2520,22 @@ export default function Player({
     return () => window.removeEventListener('click', handleClickOutsideLyrics);
   }, [showFullLyrics]);
 
+  useEffect(() => {
+    if (!showMusicList) return;
+    const handleClickOutsideMusicList = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target &&
+        !target.closest('.music-list-container') &&
+        !target.closest('.music-list-toggle-btn')
+      ) {
+        setShowMusicList(false);
+      }
+    };
+    window.addEventListener('click', handleClickOutsideMusicList);
+    return () => window.removeEventListener('click', handleClickOutsideMusicList);
+  }, [showMusicList]);
+
   const handlePlaySearchResult = (track: Track) => {
     // We create a temporary playlist for the search result so it fits into the player's architecture
     const tempPlaylistId = "spotify-search-result";
@@ -2609,7 +2627,7 @@ export default function Player({
       {showMusicList && (
         <div
           ref={musicListRef}
-          className="absolute bottom-full mb-3 inset-x-0 bg-neutral-900/90 backdrop-blur-xl border border-white/15 rounded-3xl p-4 shadow-2xl z-50 max-h-80 overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-200"
+          className="music-list-container absolute bottom-full mb-3 inset-x-0 bg-neutral-900/90 backdrop-blur-xl border border-white/15 rounded-3xl p-4 shadow-2xl z-50 max-h-80 overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-200"
         >
           <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
             <div className="flex items-center gap-2">
