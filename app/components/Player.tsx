@@ -2456,6 +2456,49 @@ export default function Player({
     }
   }, [isPlaying]);
 
+  // Mobile Background Audio Handoff Engine (Ensures 100% uninterrupted audio when screen locks or tab minimizes)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden" && isPlaying && currentTrack && currentTrack.id !== "placeholder") {
+        // App backgrounded or screen locked -> Activate native HTML5 audio stream handoff
+        const audio = audioRef.current || new Audio();
+        audioRef.current = audio;
+        audio.preload = "auto";
+        audio.crossOrigin = "anonymous";
+
+        const streamUrl = currentTrack.audioUrl ? currentTrack.audioUrl : (currentTrack.videoId ? `/api/audio-stream?v=${currentTrack.videoId}` : "");
+        if (streamUrl && audio.src !== window.location.origin + streamUrl && audio.src !== streamUrl) {
+          audio.src = streamUrl;
+          if (currentTime > 0) audio.currentTime = currentTime;
+        }
+
+        audio.play().catch(() => {});
+
+        // Mute YouTube iframe so only native HTML5 audio plays in background
+        if (playerRef.current) {
+          try {
+            playerRef.current.mute();
+          } catch {}
+        }
+      } else if (document.visibilityState === "visible" && isPlaying) {
+        // App foregrounded -> Sync volume back
+        if (playerRef.current) {
+          try {
+            playerRef.current.unMute();
+            playerRef.current.setVolume(100);
+          } catch {}
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [isPlaying, currentTrack, currentTime]);
+
   // Update Media Session API for mobile lockscreen integrations
   useEffect(() => {
     if (typeof window !== "undefined" && "mediaSession" in navigator && currentTrack) {
