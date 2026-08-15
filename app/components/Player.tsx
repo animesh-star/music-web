@@ -2206,7 +2206,7 @@ export default function Player({
   useEffect(() => {
     if (useYtFallback) {
       if (playerRef.current && typeof playerRef.current.loadVideoById === "function") {
-        if (lastLoadedYtVideoId.current !== currentTrack.videoId) {
+        if (currentTrack.videoId && currentTrack.videoId.length >= 5 && lastLoadedYtVideoId.current !== currentTrack.videoId) {
           const seek = Math.floor(savedSeekPositionRef.current > 0 ? savedSeekPositionRef.current : (initialSeekTimeRef.current > 0 ? initialSeekTimeRef.current : (currentTime > 0 ? currentTime : 0)));
           if (seek > 0) {
             playerRef.current.loadVideoById({ videoId: currentTrack.videoId, startSeconds: seek });
