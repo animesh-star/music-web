@@ -1186,17 +1186,45 @@ export default function Player({
     }
   };
 
-  // Fetch Spotify tracks on load OR when postMessage login event fires
+  // Fetch Spotify tracks on load OR auto-refresh token if expired OR when postMessage login event fires
   useEffect(() => {
-    const token = getCookie("spotify_access_token");
-    if (token) {
-      loadSpotifyData(token);
-    }
+    const initSpotifyAuth = async () => {
+      let token = getCookie("spotify_access_token");
+      const refreshToken = getCookie("spotify_refresh_token") || (typeof localStorage !== "undefined" ? localStorage.getItem("spotify_refresh_token") : null);
+
+      if (!token && refreshToken) {
+        try {
+          const res = await fetch(`/api/spotify-refresh?refresh_token=${encodeURIComponent(refreshToken)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.access_token) {
+              token = data.access_token;
+            }
+          }
+        } catch (err) {
+          console.error("Auto Spotify refresh error:", err);
+        }
+      }
+
+      if (token) {
+        setSpotifyLoggedIn(true);
+        if (typeof localStorage !== "undefined") {
+          localStorage.setItem("spotify_connected", "true");
+        }
+        loadSpotifyData(token);
+      }
+    };
+
+    initSpotifyAuth();
 
     const handleSpotifyMessage = (event: MessageEvent) => {
-      if (event.data === "spotify_login_success") {
+      if (event.data === "spotify_login_success" || (event.data && typeof event.data === "object" && event.data.type === "spotify_login_success")) {
         const newToken = getCookie("spotify_access_token");
         if (newToken) {
+          setSpotifyLoggedIn(true);
+          if (typeof localStorage !== "undefined") {
+            localStorage.setItem("spotify_connected", "true");
+          }
           loadSpotifyData(newToken);
           setCurrentPlaylistId("spotify-top-tracks");
           setTrackIndex(0);

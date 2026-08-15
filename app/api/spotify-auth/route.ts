@@ -82,6 +82,8 @@ export async function GET(request: Request) {
         </div>
         <script>
           try {
+            localStorage.setItem("spotify_connected", "true");
+            localStorage.setItem("spotify_refresh_token", "${refresh_token}");
             if (window.opener) {
               window.opener.postMessage("spotify_login_success", "*");
             }
