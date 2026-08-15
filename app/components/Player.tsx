@@ -2015,30 +2015,57 @@ export default function Player({
         })).filter((t: Track) => t.title.toLowerCase() !== currentTr.title.toLowerCase());
 
         if (candidates.length > 0) {
-          // Pick a candidate matching the language sequence
-          const nextTrack = candidates[Math.floor(Math.random() * Math.min(candidates.length, 5))];
+          const nextTrack = candidates[Math.floor(Math.random() * Math.min(candidates.length, 6))];
 
-          // Add to current playlist & auto switch to it
-          setPlaylists(prev => prev.map(p => {
-            if (p.id === currentPlaylistId) {
-              return { ...p, tracks: [...p.tracks, nextTrack] };
+          // Mark next track as played
+          playedTrackIdsRef.current.add(nextTrack.id);
+          playedTrackIdsRef.current.add(nextTrack.title.toLowerCase().trim());
+
+          setPlaylistToastMsg(`📻 Next Vibe: ${nextTrack.title} • ${nextTrack.artist}`);
+          setTimeout(() => setPlaylistToastMsg(null), 4000);
+
+          setPlaylists(prev => {
+            const exists = prev.some(p => p.id === currentPlaylistId);
+            if (!exists) {
+              const fallbackPl: Playlist = {
+                id: currentPlaylistId,
+                name: "Recently Played",
+                description: "Playback session",
+                sceneClass: "scene-a",
+                accentColor: "#1DB954",
+                tracks: [currentTr, nextTrack],
+              };
+              return [...prev, fallbackPl];
             }
-            return p;
-          }));
+            return prev.map(p => {
+              if (p.id === currentPlaylistId) {
+                return { ...p, tracks: [...p.tracks, nextTrack] };
+              }
+              return p;
+            });
+          });
 
-          setPlaylistToastMsg(`📻 Radio Auto-Play: ${nextTrack.title}`);
-          setTimeout(() => setPlaylistToastMsg(null), 3500);
-
+          // Instantly play the newly added track from the latest state queue
           setTimeout(() => {
-            const currentPl = playlists.find(p => p.id === currentPlaylistId);
-            const newIndex = currentPl ? currentPl.tracks.length : 0;
-            handleSelectTrack(newIndex);
-          }, 300);
+            setPlaylists(latestPlaylists => {
+              const pl = latestPlaylists.find(p => p.id === currentPlaylistId);
+              if (pl && pl.tracks && pl.tracks.length > 0) {
+                const targetIndex = pl.tracks.length - 1;
+                userPausedRef.current = false;
+                setTrackIndex(targetIndex);
+                setCurrentTime(0);
+                savedSeekPositionRef.current = 0;
+                initialSeekTimeRef.current = 0;
+                setIsPlaying(true);
+              }
+              return latestPlaylists;
+            });
+          }, 150);
           return;
         }
       }
     } catch (err) {
-      console.error("AutoPlay fetch error:", err);
+      console.error("AutoPlay genre fetch error:", err);
     }
 
     // Fallback if network recommendation fails
