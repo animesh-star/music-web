@@ -109,5 +109,18 @@ body {
   scrollbar-width: none;
 }
 
+/* Smooth UI button physics & micro-animations */
+button, a {
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.15s ease-in-out, background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+button:active {
+  transform: scale(0.95) !important;
+}
+
+.glow-rose {
+  box-shadow: 0 0 25px rgba(244, 63, 94, 0.45);
+}
+
 
 
