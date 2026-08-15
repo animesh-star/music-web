@@ -1144,6 +1144,7 @@ export default function Player({
 
   const initialSeekTimeRef = useRef<number>(0);
   const savedSeekPositionRef = useRef<number>(0);
+  const playedTrackIdsRef = useRef<Set<string>>(new Set());
   const userPausedRef = useRef<boolean>(true);
 
   // Hydrate scene & position memory from localStorage on client load
