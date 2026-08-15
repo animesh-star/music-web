@@ -57,7 +57,7 @@ export default function MainScene() {
       {/* Centered Player in the exact middle of the screen */}
       <section className="fixed inset-0 flex flex-col items-center justify-center p-4 select-none z-10 w-full">
         {/* The player, centered in the middle */}
-        <div className="w-full max-w-xl pointer-events-auto">
+        <div className="w-full max-w-md pointer-events-auto">
           <Player onSceneChange={(cls) => setActiveSceneClass(cls)} />
         </div>
       </section>
