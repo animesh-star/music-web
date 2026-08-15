@@ -1729,8 +1729,9 @@ export default function Player({
       nextIdx = Math.floor(Math.random() * currentPlaylist.tracks.length);
     } else if (nextIdx >= currentPlaylist.tracks.length) {
       if (repeatMode === 0) {
-         setIsPlaying(false);
-         return;
+        // Trigger Smart Auto-Play in same language sequence & mood!
+        autoPlayNextSimilarTrack(currentTrack);
+        return;
       }
       nextIdx = 0;
     }
@@ -1901,6 +1902,90 @@ export default function Player({
       isCancelled = true;
     };
   }, [isHydrated]);
+
+
+  // Smart Auto-Play Recommendation Engine (matches language, artist vibe & mood)
+  const autoPlayNextSimilarTrack = useCallback(async (currentTr: Track) => {
+    if (!currentTr) return;
+
+    const title = currentTr.title.toLowerCase();
+    const artist = currentTr.artist.toLowerCase();
+
+    // 1. Detect Language & Vibe
+    let language = "hindi"; // default prioritize Indian music
+    let moodSearch = "romantic bollywood hits";
+
+    const isPunjabi = /sidhu|shubh|aujla|diljit|dhillon|cheema|jordan|sandhu|gur|punjabi|bhangra|pind/i.test(artist + " " + title);
+    const isSouth = /ar rahman|anirudh|sriram|dsp|thaman|spb|tamil|telugu|kannada|malayalam/i.test(artist + " " + title);
+    const isEnglish = /[a-z]/i.test(artist) && !/arijit|singh|shreya|gheshat|atman|mohd|irfan|kailash|kher|rahat|atef|badshah|king|darshan|himesh|anuv|b praak|sonu|singh|kakkad|neha|tanishk|jubin|nautiyal/i.test(artist);
+
+    if (isPunjabi) {
+      language = "punjabi";
+      moodSearch = `${artist.split("&")[0].trim()} punjabi latest hits`;
+    } else if (isSouth) {
+      language = "south";
+      moodSearch = `${artist.split("&")[0].trim()} top hit songs`;
+    } else if (isEnglish) {
+      language = "english";
+      moodSearch = `${artist.split("&")[0].trim()} similar pop hits`;
+    } else {
+      // Hindi / Bollywood
+      if (/dard|ishq|pyar|dil|tum|tere|rab|roya|duaa|lagan|tera/i.test(title)) {
+        moodSearch = `${artist.split("&")[0].trim()} bollywood romantic songs`;
+      } else if (/party|club|remix|nach|bhangra|dhol|masti/i.test(title)) {
+        moodSearch = `${artist.split("&")[0].trim()} bollywood party dance hits`;
+      } else {
+        moodSearch = `${artist.split("&")[0].trim()} top hindi songs`;
+      }
+    }
+
+    try {
+      const countryParam = language === "english" ? "us" : "in";
+      const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(moodSearch)}&entity=song&country=${countryParam}&limit=15`);
+      if (res.ok) {
+        const data = await res.json();
+        const candidates: Track[] = data.results.map((item: any) => ({
+          id: `autoplay-${item.trackId}`,
+          title: item.trackName,
+          artist: item.artistName,
+          film: item.collectionName || "",
+          year: parseInt(item.releaseDate?.split("-")[0]) || 2024,
+          duration: Math.floor(item.trackTimeMillis / 1000) || 180,
+          videoId: "",
+        })).filter((t: Track) => t.title.toLowerCase() !== currentTr.title.toLowerCase());
+
+        if (candidates.length > 0) {
+          // Pick a candidate matching the language sequence
+          const nextTrack = candidates[Math.floor(Math.random() * Math.min(candidates.length, 5))];
+
+          // Add to current playlist & auto switch to it
+          setPlaylists(prev => prev.map(p => {
+            if (p.id === currentPlaylistId) {
+              return { ...p, tracks: [...p.tracks, nextTrack] };
+            }
+            return p;
+          }));
+
+          setPlaylistToastMsg(`📻 Radio Auto-Play: ${nextTrack.title}`);
+          setTimeout(() => setPlaylistToastMsg(null), 3500);
+
+          setTimeout(() => {
+            const currentPl = playlists.find(p => p.id === currentPlaylistId);
+            const newIndex = currentPl ? currentPl.tracks.length : 0;
+            handleSelectTrack(newIndex);
+          }, 300);
+          return;
+        }
+      }
+    } catch (err) {
+      console.error("AutoPlay fetch error:", err);
+    }
+
+    // Fallback if network recommendation fails
+    setPlaylistToastMsg("📻 Auto-playing next track...");
+    setTimeout(() => setPlaylistToastMsg(null), 3000);
+    handleSelectTrack(0);
+  }, [currentPlaylistId, playlists, handleSelectTrack]);
 
 
   // Synchronize state when switching between HTML5 audio and YouTube fallback
