@@ -665,7 +665,7 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
           <div className="min-w-0 flex items-center gap-2">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h2 className="text-[15px] font-semibold text-white truncate tracking-tight">
+                <h2 className="text-[14px] sm:text-[15px] font-bold text-white leading-snug break-words max-h-12 overflow-y-auto pr-1 tracking-tight">
                   {currentTrack.title}
                 </h2>
                 <button
@@ -881,7 +881,7 @@ const MobilePlayer = React.memo(function MobilePlayer({
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-1 mb-0.5">
-            <h2 className="text-[14px] font-semibold text-white truncate">
+            <h2 className="text-[13px] sm:text-[14px] font-bold text-white leading-snug break-words max-h-10 overflow-y-auto pr-1">
               {currentTrack.title}
             </h2>
             <button
