@@ -1695,6 +1695,7 @@ export default function Player({
     setTrackIndex(idx);
     setCurrentTime(0);
     initialSeekTimeRef.current = 0;
+    savedSeekPositionRef.current = 0;
     setIsPlaying(true);
 
         const playVideo = (vid: string, isSpotifyTarget?: boolean, spotifyRealId?: string, targetAudioUrl?: string) => {
@@ -2192,9 +2193,10 @@ export default function Player({
 
     if (audio.src !== window.location.origin + streamUrl && audio.src !== streamUrl) {
       audio.src = streamUrl;
-      if (savedSeekPositionRef.current > 0) {
-        audio.currentTime = savedSeekPositionRef.current;
-      }
+      const startAt = initialSeekTimeRef.current > 0 ? initialSeekTimeRef.current : 0;
+      initialSeekTimeRef.current = 0;
+      savedSeekPositionRef.current = startAt;
+      audio.currentTime = startAt;
     }
 
     const handleLoadedMetadata = () => {
@@ -2268,11 +2270,13 @@ export default function Player({
     if (useYtFallback) {
       if (playerRef.current && typeof playerRef.current.loadVideoById === "function") {
         if (currentTrack.videoId && currentTrack.videoId.length >= 5 && lastLoadedYtVideoId.current !== currentTrack.videoId) {
-          const seek = Math.floor(savedSeekPositionRef.current > 0 ? savedSeekPositionRef.current : (initialSeekTimeRef.current > 0 ? initialSeekTimeRef.current : (currentTime > 0 ? currentTime : 0)));
+          const seek = initialSeekTimeRef.current > 0 ? Math.floor(initialSeekTimeRef.current) : 0;
+          initialSeekTimeRef.current = 0;
+          savedSeekPositionRef.current = seek;
           if (seek > 0) {
             playerRef.current.loadVideoById({ videoId: currentTrack.videoId, startSeconds: seek });
           } else {
-            playerRef.current.loadVideoById(currentTrack.videoId);
+            playerRef.current.loadVideoById({ videoId: currentTrack.videoId, startSeconds: 0 });
           }
           lastLoadedYtVideoId.current = currentTrack.videoId;
         }
@@ -2891,6 +2895,7 @@ export default function Player({
 
     playlistStatesRef.current[tempPlaylistId] = { trackIndex: 0, currentTime: 0 };
     initialSeekTimeRef.current = 0;
+    savedSeekPositionRef.current = 0;
     userPausedRef.current = false;
     setCurrentPlaylistId(tempPlaylistId);
     setTrackIndex(0);
@@ -2924,7 +2929,7 @@ export default function Player({
         try {
           playerRef.current.unMute();
           playerRef.current.setVolume(100);
-          playerRef.current.loadVideoById(vid);
+          playerRef.current.loadVideoById({ videoId: vid, startSeconds: 0 });
           playerRef.current.playVideo();
         } catch {}
       }
