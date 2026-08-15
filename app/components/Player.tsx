@@ -1008,7 +1008,7 @@ export default function Player({
 }: {
   onSceneChange?: (sceneClass: string) => void;
 }) {
-  const [currentPlaylistId, setCurrentPlaylistId] = useState<string>("lofi-monsoon");
+  const [currentPlaylistId, setCurrentPlaylistId] = useState<string>("trending-indian");
   const [trackIndex, setTrackIndex] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
@@ -1026,6 +1026,84 @@ export default function Player({
   const [searchResults, setSearchResults] = useState<Track[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [lyrics, setLyrics] = useState<{ time: number; text: string }[]>([]);
+  const [customPlaylists, setCustomPlaylists] = useState<Playlist[]>([]);
+  const [trackToAddToPlaylist, setTrackToAddToPlaylist] = useState<Track | null>(null);
+  const [newPlaylistName, setNewPlaylistName] = useState("");
+  const [showCreatePlaylistModal, setShowCreatePlaylistModal] = useState(false);
+  const [playlistToastMsg, setPlaylistToastMsg] = useState<string | null>(null);
+
+  // Load User Custom Playlists from localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const savedCustom = localStorage.getItem("phoenix_user_playlists");
+        if (savedCustom) {
+          const parsed: Playlist[] = JSON.parse(savedCustom);
+          setCustomPlaylists(parsed);
+          setPlaylists(prev => {
+            const existingIds = new Set(prev.map(p => p.id));
+            const newLists = parsed.filter(p => !existingIds.has(p.id));
+            return [...prev, ...newLists];
+          });
+        }
+      } catch {}
+    }
+  }, []);
+
+  const saveCustomPlaylists = (updated: Playlist[]) => {
+    setCustomPlaylists(updated);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("phoenix_user_playlists", JSON.stringify(updated));
+      } catch {}
+    }
+  };
+
+  const handleCreateNewPlaylist = (name: string, trackToAdd?: Track) => {
+    if (!name.trim()) return;
+    const newPl: Playlist = {
+      id: `user-pl-${Date.now()}`,
+      name: name.trim(),
+      description: "Custom User Playlist",
+      sceneClass: "scene-a",
+      accentColor: "#1DB954",
+      tracks: trackToAdd ? [trackToAdd] : [],
+    };
+    const updatedCustom = [...customPlaylists, newPl];
+    saveCustomPlaylists(updatedCustom);
+    setPlaylists(prev => [...prev, newPl]);
+    playlistStatesRef.current[newPl.id] = { trackIndex: 0, currentTime: 0 };
+    setNewPlaylistName("");
+    setShowCreatePlaylistModal(false);
+    setTrackToAddToPlaylist(null);
+
+    setPlaylistToastMsg(`Created "${newPl.name}"${trackToAdd ? " & added song!" : ""}`);
+    setTimeout(() => setPlaylistToastMsg(null), 3000);
+  };
+
+  const handleAddTrackToPlaylist = (playlistId: string, track: Track) => {
+    setPlaylists(prev => prev.map(pl => {
+      if (pl.id === playlistId) {
+        if (pl.tracks.some(t => t.id === track.id)) return pl;
+        return { ...pl, tracks: [...pl.tracks, track] };
+      }
+      return pl;
+    }));
+
+    const updatedCustom = customPlaylists.map(pl => {
+      if (pl.id === playlistId) {
+        if (pl.tracks.some(t => t.id === track.id)) return pl;
+        return { ...pl, tracks: [...pl.tracks, track] };
+      }
+      return pl;
+    });
+    saveCustomPlaylists(updatedCustom);
+
+    const targetPl = playlists.find(p => p.id === playlistId);
+    setPlaylistToastMsg(`Added "${track.title}" to ${targetPl?.name || "Playlist"}`);
+    setTimeout(() => setPlaylistToastMsg(null), 3000);
+    setTrackToAddToPlaylist(null);
+  };
   const [showFullLyrics, setShowFullLyrics] = useState(false);
   const [isLoadingPlaylist, setIsLoadingPlaylist] = useState(false);
 
@@ -1062,8 +1140,8 @@ export default function Player({
 
   // Per-playlist playback memory store (remembers last track & exact timestamp for Scene A, B, C)
   const playlistStatesRef = useRef<Record<string, { trackIndex: number; currentTime: number }>>({
-    "lofi-monsoon": { trackIndex: 0, currentTime: 0 },
-    "90s-nostalgia": { trackIndex: 0, currentTime: 0 },
+    "trending-indian": { trackIndex: 0, currentTime: 0 },
+    "bollywood-classics": { trackIndex: 0, currentTime: 0 },
     "punjabi-modern": { trackIndex: 0, currentTime: 0 },
   });
 
@@ -2277,10 +2355,10 @@ export default function Player({
         handlePrevTrack();
       } else if (keyLower === "a" || e.code === "KeyA") {
         if (e) e.preventDefault();
-        handleSwitchPlaylist("lofi-monsoon");
+        handleSwitchPlaylist("trending-indian");
       } else if (keyLower === "b" || e.code === "KeyB") {
         if (e) e.preventDefault();
-        handleSwitchPlaylist("90s-nostalgia");
+        handleSwitchPlaylist("bollywood-classics");
       } else if (keyLower === "c" || e.code === "KeyC") {
         if (e) e.preventDefault();
         handleSwitchPlaylist("punjabi-modern");
@@ -2579,9 +2657,22 @@ export default function Player({
                     </div>
                   </div>
 
-                  <span className="text-[12px] font-bold font-mono text-white/80 shrink-0 ml-2">
-                    {formatTime(tr.duration)}
-                  </span>
+                  <div className="flex items-center gap-2 shrink-0 ml-2">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setTrackToAddToPlaylist(tr);
+                      }}
+                      className="text-[10px] bg-emerald-500/20 hover:bg-emerald-500/40 border border-emerald-500/40 text-emerald-300 font-bold px-2 py-0.5 rounded-full transition-all cursor-pointer"
+                      title="Add to Playlist"
+                    >
+                      + Add
+                    </button>
+                    <span className="text-[12px] font-bold font-mono text-white/80">
+                      {formatTime(tr.duration)}
+                    </span>
+                  </div>
                 </button>
               );
             })}
@@ -2689,6 +2780,91 @@ export default function Player({
         onToggleRepeat={() => setRepeatMode(prev => (prev + 1) % 3 as 0|1|2)}
         
       />
+
+      {/* Playlist Toast Notification */}
+      {playlistToastMsg && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 bg-emerald-600/90 text-white font-bold text-xs px-4 py-2 rounded-full shadow-2xl backdrop-blur-md z-[100] animate-in fade-in slide-in-from-top-3">
+          ✓ {playlistToastMsg}
+        </div>
+      )}
+
+      {/* Add Track To Playlist Modal */}
+      {trackToAddToPlaylist && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-4 z-[95] animate-in fade-in duration-200">
+          <div className="bg-neutral-900 border border-white/20 rounded-3xl p-5 max-w-sm w-full shadow-2xl text-white">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-3">
+              <h3 className="font-bold text-sm flex items-center gap-2">
+                <span className="text-emerald-400">➕</span> Add to Playlist
+              </h3>
+              <button
+                onClick={() => setTrackToAddToPlaylist(null)}
+                className="p-1 rounded-full hover:bg-white/10 text-white/60 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="text-xs text-white/70 mb-4 bg-white/5 p-2 rounded-xl border border-white/10">
+              <p className="font-semibold text-white truncate">{trackToAddToPlaylist.title}</p>
+              <p className="text-[11px] text-emerald-400 truncate">{trackToAddToPlaylist.artist}</p>
+            </div>
+
+            <div className="space-y-1.5 max-h-52 overflow-y-auto mb-4">
+              {playlists.map(pl => (
+                <button
+                  key={pl.id}
+                  onClick={() => handleAddTrackToPlaylist(pl.id, trackToAddToPlaylist)}
+                  className="w-full text-left p-2.5 rounded-xl bg-white/5 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-500/40 text-xs font-semibold flex items-center justify-between transition-all"
+                >
+                  <span className="truncate">{pl.name}</span>
+                  <span className="text-[10px] text-white/50">{pl.tracks.length} Songs</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="pt-2 border-t border-white/10">
+              <button
+                onClick={() => setShowCreatePlaylistModal(true)}
+                className="w-full py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span>+ Create New Playlist</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create New Playlist Prompt Modal */}
+      {showCreatePlaylistModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-[100] animate-in fade-in duration-200">
+          <div className="bg-neutral-900 border border-white/20 rounded-3xl p-5 max-w-xs w-full shadow-2xl text-white">
+            <h3 className="font-bold text-sm mb-1 text-emerald-400">Create New Playlist</h3>
+            <p className="text-xs text-white/60 mb-3">Enter a name for your custom playlist:</p>
+            <input
+              type="text"
+              value={newPlaylistName}
+              onChange={e => setNewPlaylistName(e.target.value)}
+              placeholder="e.g. My Favorites, Party Beats..."
+              className="w-full bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-xs text-white placeholder-white/40 focus:outline-none focus:border-emerald-500 mb-4"
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowCreatePlaylistModal(false)}
+                className="flex-1 py-2 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleCreateNewPlaylist(newPlaylistName, trackToAddToPlaylist || undefined)}
+                className="flex-1 py-2 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs rounded-xl"
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Full Synced Lyrics Container (Expands directly UNDER the music bar) */}
       {showFullLyrics && (

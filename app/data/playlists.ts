@@ -20,9 +20,9 @@ export interface Playlist {
 
 export const PLAYLISTS: Playlist[] = [
   {
-    id: "lofi-monsoon",
-    name: "Scene A",
-    description: "Scene A",
+    id: "trending-indian",
+    name: "Trending Indian Hits",
+    description: "Top Hindi & Bollywood Songs",
     sceneClass: "scene-a",
     accentColor: "#f43f5e", // Rose / Warm Red
     tracks: [
@@ -39,9 +39,9 @@ export const PLAYLISTS: Playlist[] = [
     ],
   },
   {
-    id: "90s-nostalgia",
-    name: "Scene B",
-    description: "Scene B",
+    id: "bollywood-classics",
+    name: "Bollywood Classics",
+    description: "Golden Era Melodies",
     sceneClass: "scene-b",
     accentColor: "#f59e0b", // Amber / Warm Gold
     tracks: [
@@ -57,8 +57,8 @@ export const PLAYLISTS: Playlist[] = [
   },
   {
     id: "punjabi-modern",
-    name: "Scene C",
-    description: "Scene C",
+    name: "Punjabi Hits",
+    description: "Modern Punjabi Beats",
     sceneClass: "scene-c",
     accentColor: "#eab308", // Vibrant Gold / Neon Glow
     tracks: [
