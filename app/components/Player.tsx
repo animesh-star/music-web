@@ -665,7 +665,7 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
           <div className="min-w-0 flex items-center gap-2">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h2 className="text-[14px] sm:text-[15px] font-bold text-white leading-snug break-words max-h-12 overflow-y-auto pr-1 tracking-tight">
+                <h2 className="text-sm sm:text-base font-bold text-rose-300 drop-shadow-sm leading-snug break-words tracking-tight">
                   {currentTrack.title}
                 </h2>
                 <button
@@ -881,7 +881,7 @@ const MobilePlayer = React.memo(function MobilePlayer({
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-1 mb-0.5">
-            <h2 className="text-[13px] sm:text-[14px] font-bold text-white leading-snug break-words max-h-10 overflow-y-auto pr-1">
+            <h2 className="text-xs sm:text-sm font-bold text-rose-300 drop-shadow-sm leading-snug break-words">
               {currentTrack.title}
             </h2>
             <button
@@ -1415,6 +1415,42 @@ export default function Player({
 
   const currentPlaylist = playlists.find((p) => p.id === currentPlaylistId) || playlists[0] || fallbackPlaylist;
   const currentTrack = (currentPlaylist && currentPlaylist.tracks && currentPlaylist.tracks[trackIndex]) || (currentPlaylist && currentPlaylist.tracks && currentPlaylist.tracks[0]) || fallbackTrack;
+
+  // Save exact playback state (track & seek time) to localStorage on time update
+  useEffect(() => {
+    if (typeof window !== "undefined" && isHydrated && currentTrack && currentTime > 0) {
+      try {
+        localStorage.setItem("phoenix_saved_playback_state", JSON.stringify({
+          currentPlaylistId,
+          trackIndex,
+          currentTime,
+          currentTrack,
+        }));
+      } catch {}
+    }
+  }, [currentTime, currentPlaylistId, trackIndex, currentTrack, isHydrated]);
+
+  // Restore exact seek position and track on client load
+  useEffect(() => {
+    if (typeof window !== "undefined" && isHydrated) {
+      try {
+        const saved = localStorage.getItem("phoenix_saved_playback_state");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.currentTime && parsed.currentTime > 0) {
+            initialSeekTimeRef.current = parsed.currentTime;
+            setCurrentTime(parsed.currentTime);
+          }
+          if (parsed.currentPlaylistId) {
+            setCurrentPlaylistId(parsed.currentPlaylistId);
+          }
+          if (parsed.trackIndex !== undefined) {
+            setTrackIndex(parsed.trackIndex);
+          }
+        }
+      } catch {}
+    }
+  }, [isHydrated]);
 
   // Guarantee useYtFallback is enabled for any track without direct audioUrl (e.g. search results)
   useEffect(() => {
@@ -2780,6 +2816,16 @@ export default function Player({
 
       {/* Loving Heart Burst Particles (Appears for 5.5s on favorite click only) */}
       <ParticleCanvas burstTrigger={burstTrigger} />
+
+      {/* Now Playing Active Header Banner for 100% Title Visibility */}
+      {currentTrack && currentTrack.id !== "placeholder" && (
+        <div className="w-full bg-rose-500/15 border border-rose-500/30 rounded-2xl px-4 py-2 text-center backdrop-blur-xl shadow-lg animate-in fade-in slide-in-from-top-1">
+          <p className="text-[11px] text-rose-400 font-bold uppercase tracking-wider mb-0.5">🎵 Now Playing</p>
+          <p className="text-xs sm:text-sm font-bold text-white leading-snug break-words">
+            {currentTrack.title} <span className="text-rose-300 font-medium">• {currentTrack.artist}</span>
+          </p>
+        </div>
+      )}
 
       {/* Dedicated Search Bar (Upper Side, right under Time Clock Header) */}
       <div className="w-full relative search-container z-40">
