@@ -2623,105 +2623,7 @@ export default function Player({
 
 
 
-      {/* Floating Music List Drawer Popover */}
-      {showMusicList && (
-        <div
-          ref={musicListRef}
-          className="music-list-container absolute bottom-full mb-3 inset-x-0 bg-neutral-900/90 backdrop-blur-xl border border-white/15 rounded-3xl p-4 shadow-2xl z-50 max-h-80 overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-200"
-        >
-          <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
-            <div className="flex items-center gap-2">
-              <ListMusic className="w-4 h-4 text-rose-400" />
-              <span className="text-sm font-semibold text-white tracking-wide">
-                {currentPlaylist.name} • Music List ({currentPlaylist.tracks.length} Songs)
-              </span>
-            </div>
-            <button
-              onClick={() => setShowMusicList(false)}
-              className="p-1 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
 
-          <div className="space-y-1">
-            {currentPlaylist.tracks.map((tr, idx) => {
-              const isActive = idx === trackIndex;
-              return (
-                <button
-                  key={tr.id}
-                  onClick={() => handleSelectTrack(idx)}
-                  className={`w-full flex items-center justify-between p-2 rounded-xl text-left transition-all ${
-                    isActive
-                      ? "bg-white/20 text-white font-medium shadow-sm"
-                      : "hover:bg-white/10 text-white/70 hover:text-white"
-                  }`}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className={`text-xs font-bold font-mono w-5 text-center ${isActive ? "text-rose-400" : "text-white/80"}`}>
-                      {isActive ? (
-                        <Music className="w-3.5 h-3.5 animate-pulse text-rose-400 inline" />
-                      ) : (
-                        idx + 1
-                      )}
-                    </span>
-                    <div className="min-w-0">
-                      <p className={`text-xs truncate ${isActive ? "text-white font-semibold" : "text-white/90"}`}>
-                        {tr.title}
-                      </p>
-                      <p className="text-[11px] text-white/50 truncate font-normal">
-                        {tr.artist} {tr.film ? `• ${tr.film}` : ""}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0 ml-2">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setTrackToAddToPlaylist(tr);
-                      }}
-                      className="text-[10px] bg-emerald-500/20 hover:bg-emerald-500/40 border border-emerald-500/40 text-emerald-300 font-bold px-2 py-0.5 rounded-full transition-all cursor-pointer"
-                      title="Add to Playlist"
-                    >
-                      + Add
-                    </button>
-                    <span className="text-[12px] font-bold font-mono text-white/80">
-                      {formatTime(tr.duration)}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Optional Spotify Connect banner inside the drawer */}
-          {!spotifyLoggedIn && (
-            <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] text-white/50 font-medium">Want to stream your own tracks?</span>
-              </div>
-              <button
-                onClick={() => {
-                  const width = 600;
-                  const height = 700;
-                  const left = window.screenX + (window.outerWidth - width) / 2;
-                  const top = window.screenY + (window.outerHeight - height) / 2;
-                  window.open(
-                    "/api/spotify-auth",
-                    "Spotify Login",
-                    `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes`
-                  );
-                }}
-                className="flex items-center gap-1.5 bg-[#1DB954] hover:bg-[#1ed760] text-white text-[11px] font-semibold px-3 py-1.5 rounded-full transition-all duration-200 active:scale-95 cursor-pointer shadow-md"
-              >
-                <span>Connect Spotify</span>
-              </button>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Desktop Player */}
       <DesktopPlayer
@@ -2881,6 +2783,106 @@ export default function Player({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Floating Music List Drawer Container (Expands directly UNDER the music bar) */}
+      {showMusicList && (
+        <div
+          ref={musicListRef}
+          className="music-list-container mt-3 w-full bg-neutral-900/90 backdrop-blur-xl border border-white/15 rounded-3xl p-4 shadow-2xl z-50 max-h-80 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-200"
+        >
+          <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/10">
+            <div className="flex items-center gap-2">
+              <ListMusic className="w-4 h-4 text-rose-400" />
+              <span className="text-sm font-semibold text-white tracking-wide">
+                {currentPlaylist.name} • Music List ({currentPlaylist.tracks.length} Songs)
+              </span>
+            </div>
+            <button
+              onClick={() => setShowMusicList(false)}
+              className="p-1 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="space-y-1">
+            {currentPlaylist.tracks.map((tr, idx) => {
+              const isActive = idx === trackIndex;
+              return (
+                <button
+                  key={tr.id}
+                  onClick={() => handleSelectTrack(idx)}
+                  className={`w-full flex items-center justify-between p-2 rounded-xl text-left transition-all ${
+                    isActive
+                      ? "bg-white/20 text-white font-medium shadow-sm"
+                      : "hover:bg-white/10 text-white/70 hover:text-white"
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className={`text-xs font-bold font-mono w-5 text-center ${isActive ? "text-rose-400" : "text-white/80"}`}>
+                      {isActive ? (
+                        <Music className="w-3.5 h-3.5 animate-pulse text-rose-400 inline" />
+                      ) : (
+                        idx + 1
+                      )}
+                    </span>
+                    <div className="min-w-0">
+                      <p className={`text-xs truncate ${isActive ? "text-white font-semibold" : "text-white/90"}`}>
+                        {tr.title}
+                      </p>
+                      <p className="text-[11px] text-white/50 truncate font-normal">
+                        {tr.artist} {tr.film ? `• ${tr.film}` : ""}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0 ml-2">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setTrackToAddToPlaylist(tr);
+                      }}
+                      className="text-[10px] bg-emerald-500/20 hover:bg-emerald-500/40 border border-emerald-500/40 text-emerald-300 font-bold px-2 py-0.5 rounded-full transition-all cursor-pointer"
+                      title="Add to Playlist"
+                    >
+                      + Add
+                    </button>
+                    <span className="text-[12px] font-bold font-mono text-white/80">
+                      {formatTime(tr.duration)}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Optional Spotify Connect banner inside the drawer */}
+          {!spotifyLoggedIn && (
+            <div className="mt-3 pt-3 border-t border-white/10 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-white/50 font-medium">Want to stream your own tracks?</span>
+              </div>
+              <button
+                onClick={() => {
+                  const width = 600;
+                  const height = 700;
+                  const left = window.screenX + (window.outerWidth - width) / 2;
+                  const top = window.screenY + (window.outerHeight - height) / 2;
+                  window.open(
+                    "/api/spotify-auth",
+                    "Spotify Login",
+                    `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes`
+                  );
+                }}
+                className="flex items-center gap-1.5 bg-[#1DB954] hover:bg-[#1ed760] text-white text-[11px] font-semibold px-3 py-1.5 rounded-full transition-all duration-200 active:scale-95 cursor-pointer shadow-md"
+              >
+                <span>Connect Spotify</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
 
