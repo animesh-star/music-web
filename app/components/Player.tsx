@@ -704,7 +704,7 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
                 ))}
                 {!spotifyLoggedIn && (
                   <option value="connect-spotify" className="bg-neutral-900 text-[#1DB954] font-semibold">
-                    🟢 Connect Spotify
+                    🎵 Connect Echoa Stream
                   </option>
                 )}
               </select>
@@ -918,7 +918,7 @@ const MobilePlayer = React.memo(function MobilePlayer({
                 ))}
                 {!spotifyLoggedIn && (
                   <option value="connect-spotify" className="bg-neutral-900 text-[#1DB954] font-semibold">
-                    🟢 Connect Spotify
+                    🎵 Connect Echoa Stream
                   </option>
                 )}
               </select>
@@ -2731,9 +2731,9 @@ export default function Player({
         artist: currentTrack.artist,
         album: currentTrack.film || "Echoa Music",
         artwork: [
-          { src: "/favicon.ico", sizes: "96x96", type: "image/png" },
-          { src: "/favicon.ico", sizes: "128x128", type: "image/png" },
-          { src: "/favicon.ico", sizes: "512x512", type: "image/png" },
+          { src: "/echoa-logo.png", sizes: "96x96", type: "image/png" },
+          { src: "/echoa-logo.png", sizes: "128x128", type: "image/png" },
+          { src: "/echoa-logo.png", sizes: "512x512", type: "image/png" },
         ],
       });
     }
@@ -3175,13 +3175,14 @@ export default function Player({
                   const top = window.screenY + (window.outerHeight - height) / 2;
                   window.open(
                     "/api/spotify-auth",
-                    "Spotify Login",
+                    "Echoa Login",
                     `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes`
                   );
                 }}
-                className="flex items-center gap-1.5 bg-[#1DB954] hover:bg-[#1ed760] text-white text-[11px] font-semibold px-3 py-1.5 rounded-full transition-all duration-200 active:scale-95 cursor-pointer shadow-md"
+                className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-500 hover:to-blue-400 text-white text-[11px] font-semibold px-3 py-1.5 rounded-full transition-all duration-200 active:scale-95 cursor-pointer shadow-md"
               >
-                <span>Connect Spotify</span>
+                <img src="/echoa-logo.png" className="w-3.5 h-3.5 rounded-sm object-cover" alt="Echoa" />
+                <span>Connect Echoa</span>
               </button>
             </div>
           )}
