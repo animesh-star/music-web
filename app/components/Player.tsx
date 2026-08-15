@@ -2089,26 +2089,24 @@ export default function Player({
     }
   }, [useYtFallback]);
 
-  // HTML5 Audio element setup & handling (plays direct audioUrl or local audio)
+  // Native HTML5 Audio Element handling (Ensures 100% Mobile Background & Lock Screen Playback)
   useEffect(() => {
-    // When YouTube fallback is active, force HTML5 audio to be COMPLETELY paused and cleared so no double audio plays
-    if (useYtFallback || IS_PRODUCTION) {
-      if (audioRef.current) {
-        try {
-          audioRef.current.pause();
-          audioRef.current.removeAttribute("src");
-          audioRef.current.load();
-        } catch {}
-      }
-      return;
-    }
+    if (!currentTrack || currentTrack.id === "placeholder") return;
 
     const audio = audioRef.current || new Audio();
     audioRef.current = audio;
     audio.preload = "auto";
+    audio.crossOrigin = "anonymous";
 
-    // Try webm audio first, fallback to mp3
-    audio.src = `/audio/${currentTrack.videoId}.webm`;
+    const streamUrl = currentTrack.audioUrl ? currentTrack.audioUrl : (currentTrack.videoId ? `/api/audio-stream?v=${currentTrack.videoId}` : "");
+    if (!streamUrl) return;
+
+    if (audio.src !== window.location.origin + streamUrl && audio.src !== streamUrl) {
+      audio.src = streamUrl;
+      if (savedSeekPositionRef.current > 0) {
+        audio.currentTime = savedSeekPositionRef.current;
+      }
+    }
 
     const handleLoadedMetadata = () => {
       if (audio.duration && isFinite(audio.duration)) {
@@ -2120,31 +2118,20 @@ export default function Player({
         audio.currentTime = Math.max(0, seekTo);
         initialSeekTimeRef.current = 0;
       }
-      if (isPlaying) {
-        audio.play().catch(() => {
-          // Browser autoplay policy might wait for first interaction
-        });
-      }
-    };
-
-    const handleCanPlay = () => {
-      if (isPlaying && audio.paused) {
-        audio.play().catch(() => {});
-      }
     };
 
     const handleTimeUpdate = () => {
-      setCurrentTime(audio.currentTime);
-      // Continuously update position memory for current scene
-      playlistStatesRef.current[currentPlaylistId] = {
-        trackIndex,
-        currentTime: audio.currentTime,
-      };
-      if (typeof window !== "undefined") {
-        try {
-          localStorage.setItem("phoenix_playlist_states", JSON.stringify(playlistStatesRef.current));
-        } catch {
-          // ignore
+      if (audio.currentTime && isFinite(audio.currentTime)) {
+        setCurrentTime(audio.currentTime);
+        savedSeekPositionRef.current = audio.currentTime;
+        playlistStatesRef.current[currentPlaylistId] = {
+          trackIndex,
+          currentTime: audio.currentTime,
+        };
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem("phoenix_playlist_states", JSON.stringify(playlistStatesRef.current));
+          } catch {}
         }
       }
     };
@@ -2157,39 +2144,27 @@ export default function Player({
     };
 
     const handleError = () => {
-      // If webm fails, try mp3 or switch to YT fallback
-      if (audio.src.endsWith(".webm")) {
-        audio.src = `/audio/${currentTrack.videoId}.mp3`;
-        if (isPlaying) {
-          audio.play().catch(() => {
-            setUseYtFallback(true);
-          });
-        }
-      } else {
-        setUseYtFallback(true);
-      }
+      setUseYtFallback(true);
     };
 
     audio.addEventListener("loadedmetadata", handleLoadedMetadata);
-    audio.addEventListener("canplay", handleCanPlay);
     audio.addEventListener("timeupdate", handleTimeUpdate);
     audio.addEventListener("ended", handleEnded);
     audio.addEventListener("error", handleError);
 
     if (isPlaying) {
-      audio.play().catch(() => {
-        // Will resume on metadata / canplay or on first user gesture
-      });
+      audio.play().catch(() => {});
+    } else {
+      audio.pause();
     }
 
     return () => {
       audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
-      audio.removeEventListener("canplay", handleCanPlay);
       audio.removeEventListener("timeupdate", handleTimeUpdate);
       audio.removeEventListener("ended", handleEnded);
       audio.removeEventListener("error", handleError);
     };
-  }, [currentTrack.videoId, useYtFallback, handleNextTrack]);
+  }, [currentTrack?.id, currentTrack?.videoId, currentTrack?.audioUrl, isPlaying, useYtFallback]);
 
   // Handle Play / Pause sync
   useEffect(() => {
@@ -2261,7 +2236,7 @@ export default function Player({
 
   // User interactions
   const handlePlayPause = useCallback(() => {
-    if (silentAudioRef.current && isPlaying) { silentAudioRef.current.pause(); } else if (silentAudioRef.current) { silentAudioRef.current.play().catch(() => {}); }
+    if (audioRef.current) { if (isPlaying) { audioRef.current.pause(); } else { audioRef.current.play().catch(() => {}); } }
     if (spotifyPlayerRef.current) {
       spotifyPlayerRef.current.togglePlay().then(() => setIsPlaying((prev) => !prev)).catch(() => {});
       return;
