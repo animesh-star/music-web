@@ -566,6 +566,7 @@ const TransportControls = React.memo(function TransportControls({
 
 // DESKTOP PLAYER COMPONENT
 interface DesktopPlayerProps {
+  onToggleFullLyrics?: () => void;
   currentLyricText?: string;
   currentTrack: Track;
   isPlaying: boolean;
@@ -600,6 +601,7 @@ interface DesktopPlayerProps {
 }
 
 const DesktopPlayer = React.memo(function DesktopPlayer({
+  onToggleFullLyrics,
   currentLyricText,
   currentTrack,
   isPlaying,
@@ -734,13 +736,23 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
           <span>{formatTime(currentTime)}</span>
           <span>{formatTime(duration)}</span>
         </div>
-        {/* Lower-Side Synced Lyrics Bar */}
+        {/* Lower-Side Synced Lyrics Bar with Expand Option */}
         {currentLyricText && (
-          <div className="w-full bg-black/40 backdrop-blur-md border border-white/10 rounded-full py-1 px-4 mt-1 flex items-center justify-center gap-2 animate-in fade-in duration-300">
-            <span className="text-emerald-400 animate-pulse text-[11px]">♪</span>
-            <p className="text-xs font-semibold text-emerald-300/90 tracking-wide text-center truncate drop-shadow-[0_0_8px_rgba(52,211,153,0.4)]">
-              {currentLyricText}
-            </p>
+          <div className="w-full bg-black/40 backdrop-blur-md border border-white/10 rounded-full py-1 px-3 mt-1 flex items-center justify-between gap-2 animate-in fade-in duration-300">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-emerald-400 animate-pulse text-[11px]">♪</span>
+              <p className="text-xs font-semibold text-emerald-300/90 tracking-wide truncate drop-shadow-[0_0_8px_rgba(52,211,153,0.4)]">
+                {currentLyricText}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onToggleFullLyrics}
+              className="text-[10px] text-emerald-400 hover:text-emerald-200 font-bold bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 px-2 py-0.5 rounded-full transition-all cursor-pointer shrink-0"
+              title="Expand Full Lyrics"
+            >
+              Expand ⤢
+            </button>
           </div>
         )}
       </div>
@@ -770,6 +782,7 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
 
 // MOBILE PLAYER COMPONENT
 interface MobilePlayerProps {
+  onToggleFullLyrics?: () => void;
   currentLyricText?: string;
   currentTrack: Track;
   isPlaying: boolean;
@@ -804,6 +817,7 @@ interface MobilePlayerProps {
 }
 
 const MobilePlayer = React.memo(function MobilePlayer({
+  onToggleFullLyrics,
   currentLyricText,
   currentTrack,
   isPlaying,
@@ -932,6 +946,26 @@ const MobilePlayer = React.memo(function MobilePlayer({
         />
       </div>
 
+      {/* Lower-Side Synced Lyrics Bar with Expand Option (Mobile) */}
+      {currentLyricText && (
+        <div className="w-full bg-black/40 backdrop-blur-md border border-white/10 rounded-full py-1 px-3 my-1 flex items-center justify-between gap-2 animate-in fade-in duration-300">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-emerald-400 animate-pulse text-[10px]">♪</span>
+            <p className="text-[11px] font-semibold text-emerald-300/90 tracking-wide truncate drop-shadow-[0_0_8px_rgba(52,211,153,0.4)]">
+              {currentLyricText}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onToggleFullLyrics}
+            className="text-[9px] text-emerald-400 hover:text-emerald-200 font-bold bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 px-2 py-0.5 rounded-full transition-all cursor-pointer shrink-0"
+            title="Expand Full Lyrics"
+          >
+            Expand ⤢
+          </button>
+        </div>
+      )}
+
       {/* Row 3: Elapsed/Duration on left, Transport centered */}
       <div className="flex items-center justify-between min-w-0 pt-0.5">
         <div className="text-[12px] text-white font-bold font-mono tabular-nums flex flex-col leading-tight">
@@ -988,6 +1022,7 @@ export default function Player({
   const [searchResults, setSearchResults] = useState<Track[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [lyrics, setLyrics] = useState<{ time: number; text: string }[]>([]);
+  const [showFullLyrics, setShowFullLyrics] = useState(false);
   const [isLoadingPlaylist, setIsLoadingPlaylist] = useState(false);
 
   const [isShuffle, setIsShuffle] = useState(false);
@@ -1132,6 +1167,25 @@ export default function Player({
              playlistStatesRef.current[pl.id] = { trackIndex: 0, currentTime: 0 };
            }
         });
+      }
+
+      // Restore exact active Spotify playlist & position from localStorage on page refresh!
+      if (typeof window !== "undefined") {
+        const savedPlaylistId = localStorage.getItem("phoenix_active_playlist_id");
+        const savedStates = localStorage.getItem("phoenix_playlist_states");
+        if (savedPlaylistId && savedStates) {
+          try {
+            const parsed = JSON.parse(savedStates);
+            playlistStatesRef.current = { ...playlistStatesRef.current, ...parsed };
+            const savedState = playlistStatesRef.current[savedPlaylistId];
+            if (savedState) {
+              setCurrentPlaylistId(savedPlaylistId);
+              setTrackIndex(savedState.trackIndex || 0);
+              setCurrentTime(savedState.currentTime || 0);
+              initialSeekTimeRef.current = savedState.currentTime || 0;
+            }
+          } catch {}
+        }
       }
 
     } catch (err) {
@@ -2428,6 +2482,56 @@ export default function Player({
         className="fixed bottom-0 right-0 w-px h-px opacity-[0.001] pointer-events-none z-[-1]"
       />
 
+      {/* Full Synced Lyrics Drawer / Overlay */}
+      {showFullLyrics && (
+        <div className="absolute bottom-full mb-3 inset-x-0 bg-neutral-900/95 backdrop-blur-2xl border border-white/20 rounded-3xl p-5 shadow-2xl z-[80] max-h-96 overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/10 sticky top-0 bg-neutral-900/95 backdrop-blur-xl z-10">
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <span className="text-emerald-400">🎤</span> Full Synced Lyrics
+              </h3>
+              <p className="text-xs text-emerald-400 font-medium truncate">
+                {currentTrack.title} • {currentTrack.artist}
+              </p>
+            </div>
+            <button
+              onClick={() => setShowFullLyrics(false)}
+              className="p-1.5 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {lyrics.length > 0 ? (
+            <div className="space-y-2 text-center py-2">
+              {lyrics.map((line, idx) => {
+                const isCurrent = currentLyric?.text === line.text;
+                return (
+                  <p
+                    key={idx}
+                    onClick={() => {
+                      handleSeek(line.time);
+                      setShowFullLyrics(false);
+                    }}
+                    className={`text-xs sm:text-sm transition-all duration-300 cursor-pointer py-1.5 px-3 rounded-xl ${
+                      isCurrent
+                        ? "text-emerald-300 font-bold text-base bg-emerald-500/20 border border-emerald-500/30 shadow-[0_0_15px_rgba(52,211,153,0.4)] scale-105"
+                        : "text-white/60 hover:text-white hover:bg-white/10 font-medium"
+                    }`}
+                  >
+                    {line.text}
+                  </p>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-white/50 text-xs font-medium">
+              No lyrics available for this track.
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Floating Music List Drawer Popover */}
       {showMusicList && (
         <div
@@ -2517,6 +2621,7 @@ export default function Player({
 
       {/* Desktop Player */}
       <DesktopPlayer
+        onToggleFullLyrics={() => setShowFullLyrics(prev => !prev)}
         currentLyricText={currentLyric?.text}
         currentTrack={currentTrack}
         isPlaying={isPlaying}
@@ -2553,6 +2658,7 @@ export default function Player({
 
       {/* Mobile Player */}
       <MobilePlayer
+        onToggleFullLyrics={() => setShowFullLyrics(prev => !prev)}
         currentLyricText={currentLyric?.text}
         currentTrack={currentTrack}
         isPlaying={isPlaying}
