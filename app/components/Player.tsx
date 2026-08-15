@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Play, Pause, SkipBack, SkipForward, Disc, Layers, RotateCcw, RotateCw, Heart, ListMusic, X, Music, Shuffle, Repeat, Repeat1 } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Disc, Layers, RotateCcw, RotateCw, Heart, ListMusic, X, Music, Shuffle, Repeat, Repeat1, Plus } from "lucide-react";
 import { PLAYLISTS, Track, Playlist } from "../data/playlists";
 import { track as trackAnalytics } from "@vercel/analytics";
 
@@ -566,6 +566,7 @@ const TransportControls = React.memo(function TransportControls({
 
 // DESKTOP PLAYER COMPONENT
 interface DesktopPlayerProps {
+  onAddCurrentToPlaylist?: () => void;
   showFullLyrics?: boolean;
   onToggleFullLyrics?: () => void;
   currentLyricText?: string;
@@ -602,6 +603,7 @@ interface DesktopPlayerProps {
 }
 
 const DesktopPlayer = React.memo(function DesktopPlayer({
+  onAddCurrentToPlaylist,
   showFullLyrics,
   onToggleFullLyrics,
   currentLyricText,
@@ -713,14 +715,13 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
 
 
             <button
-              onClick={onToggleMusicList}
-              className={`p-1.5 rounded-full border border-white/10 transition-all cursor-pointer ${
-                showMusicList ? "bg-white/25 text-white shadow-[0_0_12px_rgba(255,255,255,0.4)]" : "bg-white/10 hover:bg-white/15 text-white/80 hover:text-white"
-              }`}
-              title="Music List (Tracks)"
-              aria-label="Toggle Music List"
+              type="button"
+              onClick={onAddCurrentToPlaylist}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 hover:text-emerald-200 text-xs font-bold transition-all duration-200 cursor-pointer shadow-sm active:scale-95"
+              title="Add current song to Playlist"
             >
-              <ListMusic className="w-3.5 h-3.5" />
+              <Plus className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Add to Playlist</span>
             </button>
           </div>
         </div>
@@ -784,6 +785,7 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
 
 // MOBILE PLAYER COMPONENT
 interface MobilePlayerProps {
+  onAddCurrentToPlaylist?: () => void;
   showFullLyrics?: boolean;
   onToggleFullLyrics?: () => void;
   currentLyricText?: string;
@@ -820,6 +822,7 @@ interface MobilePlayerProps {
 }
 
 const MobilePlayer = React.memo(function MobilePlayer({
+  onAddCurrentToPlaylist,
   showFullLyrics,
   onToggleFullLyrics,
   currentLyricText,
@@ -927,15 +930,12 @@ const MobilePlayer = React.memo(function MobilePlayer({
             <div className="flex">
               <button
                 type="button"
-                onClick={onToggleMusicList}
-                className={`music-list-toggle-btn flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all duration-200 cursor-pointer shadow-sm ${
-                  showMusicList
-                    ? "bg-white/20 border-white/40 text-white shadow-md scale-105"
-                    : "bg-white/10 border-white/20 text-white/90 hover:bg-white/15 hover:border-white/30"
-                }`}
+                onClick={onAddCurrentToPlaylist}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 hover:text-emerald-200 text-xs font-bold transition-all duration-200 cursor-pointer shadow-sm active:scale-95"
+                title="Add current song to Playlist"
               >
-                <ListMusic className="w-3 h-3" />
-                <span>Music List</span>
+                <Plus className="w-3.5 h-3.5 text-emerald-400" />
+                <span>+ Playlist</span>
               </button>
             </div>
           </div>
@@ -2646,6 +2646,7 @@ export default function Player({
 
       {/* Desktop Player */}
       <DesktopPlayer
+        onAddCurrentToPlaylist={() => setTrackToAddToPlaylist(currentTrack)}
         showFullLyrics={showFullLyrics}
         onToggleFullLyrics={() => setShowFullLyrics(prev => !prev)}
         currentLyricText={currentLyric?.text}
@@ -2684,6 +2685,7 @@ export default function Player({
 
       {/* Mobile Player */}
       <MobilePlayer
+        onAddCurrentToPlaylist={() => setTrackToAddToPlaylist(currentTrack)}
         showFullLyrics={showFullLyrics}
         onToggleFullLyrics={() => setShowFullLyrics(prev => !prev)}
         currentLyricText={currentLyric?.text}
