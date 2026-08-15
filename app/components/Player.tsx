@@ -1087,7 +1087,7 @@ export default function Player({
           setFavorites(JSON.parse(savedFavs));
         }
 
-        if (savedPlaylistId && (PLAYLISTS.some((p) => p.id === savedPlaylistId) || savedPlaylistId === "spotify-top-tracks")) {
+        if (savedPlaylistId) {
           const savedState = playlistStatesRef.current[savedPlaylistId];
           setCurrentPlaylistId(savedPlaylistId);
           if (savedState) {
