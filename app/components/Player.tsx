@@ -1145,6 +1145,7 @@ export default function Player({
   });
 
   const initialSeekTimeRef = useRef<number>(0);
+  const savedSeekPositionRef = useRef<number>(0);
   const userPausedRef = useRef<boolean>(true);
 
   // Hydrate scene & position memory from localStorage on client load
@@ -1416,6 +1417,7 @@ export default function Player({
   // Save exact playback state (track & seek time) to localStorage on time update
   useEffect(() => {
     if (typeof window !== "undefined" && isHydrated && currentTrack && currentTrack.id !== "placeholder" && currentTime > 0) {
+      savedSeekPositionRef.current = currentTime;
       try {
         localStorage.setItem("phoenix_saved_playback_state", JSON.stringify({
           currentPlaylistId,
@@ -1459,8 +1461,11 @@ export default function Player({
             setTrackIndex(parsed.trackIndex || 0);
 
             if (parsed.currentTime && parsed.currentTime > 0) {
+              savedSeekPositionRef.current = parsed.currentTime;
               initialSeekTimeRef.current = parsed.currentTime;
               setCurrentTime(parsed.currentTime);
+              setIsPlaying(false);
+              userPausedRef.current = true;
               playlistStatesRef.current[restoredPlId] = {
                 trackIndex: parsed.trackIndex || 0,
                 currentTime: parsed.currentTime,
@@ -1873,25 +1878,18 @@ export default function Player({
             if (dur && isFinite(dur) && dur > 0 && dur < 86400) {
               setDuration(dur);
             }
-            if (initialSeekTimeRef.current > 0) {
-              event.target.seekTo(initialSeekTimeRef.current, true);
-              initialSeekTimeRef.current = 0;
+            const seekSec = savedSeekPositionRef.current || initialSeekTimeRef.current;
+            if (seekSec > 0) {
+              event.target.seekTo(seekSec, true);
+              setCurrentTime(seekSec);
             }
             lastLoadedYtVideoId.current = currentTrack.videoId;
 
-            // Setup player unmuted but do not play automatically on load
-            if (useYtFallbackRef.current) {
-              try {
-                event.target.unMute();
-                event.target.setVolume(100);
-                event.target.pauseVideo();
-              } catch { /* ignore */ }
-            } else {
-              try {
-                event.target.mute();
-                event.target.pauseVideo();
-              } catch { /* ignore */ }
-            }
+            try {
+              event.target.unMute();
+              event.target.setVolume(100);
+              event.target.pauseVideo();
+            } catch {}
           },
           onStateChange: (event) => {
             if (isCancelled) return;
@@ -2200,7 +2198,7 @@ export default function Player({
     if (useYtFallback) {
       if (playerRef.current && typeof playerRef.current.loadVideoById === "function") {
         if (lastLoadedYtVideoId.current !== currentTrack.videoId) {
-          const seek = Math.floor(initialSeekTimeRef.current > 0 ? initialSeekTimeRef.current : (currentTime > 0 ? currentTime : 0));
+          const seek = Math.floor(savedSeekPositionRef.current > 0 ? savedSeekPositionRef.current : (initialSeekTimeRef.current > 0 ? initialSeekTimeRef.current : (currentTime > 0 ? currentTime : 0)));
           if (seek > 0) {
             playerRef.current.loadVideoById({ videoId: currentTrack.videoId, startSeconds: seek });
           } else {
