@@ -2613,30 +2613,81 @@ export default function Player({
   }, [handlePlayPause, handlePrevTrack, handleNextTrack, handleSkipBack10, handleSkipForward10, handleSeek]);
 
   const handlePlaySearchResult = (track: Track) => {
-    // We create a temporary playlist for the search result so it fits into the player's architecture
-    const tempPlaylistId = "spotify-search-result";
-    setPlaylists(prev => {
-      const exists = prev.some(p => p.id === tempPlaylistId);
-      const searchPl = {
-        id: tempPlaylistId,
-        name: "Search Result",
-        description: "Your searched track",
-        sceneClass: "scene-c",
-        accentColor: "#1DB954",
-        tracks: [track],
-      };
-      if (exists) {
-        return prev.map(p => p.id === tempPlaylistId ? searchPl : p);
-      }
-      return [...prev, searchPl];
-    });
+    const tempPlaylistId = `search-play-${Date.now()}`;
+    const searchPl: Playlist = {
+      id: tempPlaylistId,
+      name: "Search Result",
+      description: "Your searched track",
+      sceneClass: "scene-a",
+      accentColor: "#1DB954",
+      tracks: [track],
+    };
+
+    setPlaylists(prev => [...prev.filter(p => !p.id.startsWith("search-play-")), searchPl]);
     setSearchResults([]);
     setSearchQuery("");
-    
-    // Wait for state flush
-    setTimeout(() => {
-      handleSwitchPlaylist(tempPlaylistId);
-    }, 100);
+
+    playlistStatesRef.current[tempPlaylistId] = { trackIndex: 0, currentTime: 0 };
+    initialSeekTimeRef.current = 0;
+    userPausedRef.current = false;
+    setCurrentPlaylistId(tempPlaylistId);
+    setTrackIndex(0);
+    setCurrentTime(0);
+    setIsPlaying(true);
+
+    if (track.audioUrl && audioRef.current) {
+      audioRef.current.src = track.audioUrl;
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(() => {});
+      return;
+    }
+
+    if (track.videoId && playerRef.current) {
+      lastLoadedYtVideoId.current = track.videoId;
+      try {
+        playerRef.current.unMute();
+        playerRef.current.setVolume(100);
+        playerRef.current.loadVideoById(track.videoId);
+        playerRef.current.playVideo();
+      } catch {}
+    } else {
+      fetch(`/api/youtube-search?q=${encodeURIComponent(track.title + " " + track.artist)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.videoId) {
+            track.videoId = data.videoId;
+            lastLoadedYtVideoId.current = data.videoId;
+            if (playerRef.current) {
+              try {
+                playerRef.current.unMute();
+                playerRef.current.setVolume(100);
+                playerRef.current.loadVideoById(data.videoId);
+                playerRef.current.playVideo();
+              } catch {}
+            }
+          } else {
+            fetch(`https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(track.title + " " + track.artist)}&filter=music_songs`)
+              .then(res => res.json())
+              .then(pipedData => {
+                if (pipedData && pipedData.items && pipedData.items[0]) {
+                  const vid = pipedData.items[0].url.split("v=")[1];
+                  track.videoId = vid;
+                  lastLoadedYtVideoId.current = vid;
+                  if (playerRef.current) {
+                    try {
+                      playerRef.current.unMute();
+                      playerRef.current.setVolume(100);
+                      playerRef.current.loadVideoById(vid);
+                      playerRef.current.playVideo();
+                    } catch {}
+                  }
+                }
+              })
+              .catch(() => {});
+          }
+        })
+        .catch(() => {});
+    }
   };
 
   return (
