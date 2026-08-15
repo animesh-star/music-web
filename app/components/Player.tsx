@@ -2513,55 +2513,7 @@ export default function Player({
         className="fixed bottom-0 right-0 w-px h-px opacity-[0.001] pointer-events-none z-[-1]"
       />
 
-      {/* Full Synced Lyrics Drawer / Overlay */}
-      {showFullLyrics && (
-        <div className="absolute bottom-full mb-3 inset-x-0 bg-neutral-900/95 backdrop-blur-2xl border border-white/20 rounded-3xl p-5 shadow-2xl z-[80] max-h-96 overflow-y-auto animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/10 sticky top-0 bg-neutral-900/95 backdrop-blur-xl z-10">
-            <div>
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <span className="text-emerald-400">🎤</span> Full Synced Lyrics
-              </h3>
-              <p className="text-xs text-emerald-400 font-medium truncate">
-                {currentTrack.title} • {currentTrack.artist}
-              </p>
-            </div>
-            <button
-              onClick={() => setShowFullLyrics(false)}
-              className="p-1.5 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
 
-          {lyrics.length > 0 ? (
-            <div className="space-y-2 text-center py-2">
-              {lyrics.map((line, idx) => {
-                const isCurrent = currentLyric?.text === line.text;
-                return (
-                  <p
-                    key={idx}
-                    onClick={() => {
-                      handleSeek(line.time);
-                      setShowFullLyrics(false);
-                    }}
-                    className={`text-xs sm:text-sm transition-all duration-300 cursor-pointer py-1.5 px-3 rounded-xl ${
-                      isCurrent
-                        ? "text-emerald-300 font-bold text-base bg-emerald-500/20 border border-emerald-500/30 shadow-[0_0_15px_rgba(52,211,153,0.4)] scale-105"
-                        : "text-white/60 hover:text-white hover:bg-white/10 font-medium"
-                    }`}
-                  >
-                    {line.text}
-                  </p>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-8 text-white/50 text-xs font-medium">
-              No lyrics available for this track.
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Floating Music List Drawer Popover */}
       {showMusicList && (
@@ -2725,6 +2677,56 @@ export default function Player({
         onToggleRepeat={() => setRepeatMode(prev => (prev + 1) % 3 as 0|1|2)}
         
       />
+
+      {/* Full Synced Lyrics Container (Expands directly UNDER the music bar) */}
+      {showFullLyrics && (
+        <div className="mt-3 w-full bg-neutral-900/95 backdrop-blur-2xl border border-white/20 rounded-3xl p-5 shadow-2xl z-[80] max-h-96 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/10 sticky top-0 bg-neutral-900/95 backdrop-blur-xl z-10">
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <span className="text-emerald-400">🎤</span> Full Synced Lyrics
+              </h3>
+              <p className="text-xs text-emerald-400 font-medium truncate">
+                {currentTrack.title} • {currentTrack.artist}
+              </p>
+            </div>
+            <button
+              onClick={() => setShowFullLyrics(false)}
+              className="p-1.5 rounded-full text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {lyrics.length > 0 ? (
+            <div className="space-y-2 text-center py-2">
+              {lyrics.map((line, idx) => {
+                const isCurrent = currentLyric?.text === line.text;
+                return (
+                  <p
+                    key={idx}
+                    onClick={() => {
+                      handleSeek(line.time);
+                      setShowFullLyrics(false);
+                    }}
+                    className={`text-xs sm:text-sm transition-all duration-300 cursor-pointer py-1.5 px-3 rounded-xl ${
+                      isCurrent
+                        ? "text-emerald-300 font-bold text-base bg-emerald-500/20 border border-emerald-500/30 shadow-[0_0_15px_rgba(52,211,153,0.4)] scale-105"
+                        : "text-white/60 hover:text-white hover:bg-white/10 font-medium"
+                    }`}
+                  >
+                    {line.text}
+                  </p>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-white/50 text-xs font-medium">
+              No lyrics available for this track.
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
