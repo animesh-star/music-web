@@ -2332,8 +2332,8 @@ export default function Player({
     
     try {
       if (token) {
-        // Search via Spotify API if logged in
-        const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(searchQuery)}&type=track&limit=10`, {
+        // Search via Spotify API with Indian market prioritization
+        const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(searchQuery)}&type=track&market=IN&limit=12`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (res.ok) {
@@ -2353,8 +2353,8 @@ export default function Player({
         }
       }
 
-      // Universal iTunes Search API (Free, Instant, No Login Required!)
-      const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(searchQuery)}&entity=song&limit=10`);
+      // Universal iTunes Search API prioritizing Indian songs (country=in)
+      const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(searchQuery)}&entity=song&country=in&limit=12`);
       if (itunesRes.ok) {
         const itunesData = await itunesRes.json();
         const tracks: Track[] = itunesData.results.map((item: any) => ({
