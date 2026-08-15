@@ -1394,8 +1394,27 @@ export default function Player({
     }
   }, [isPlaying]);
 
-  const currentPlaylist = playlists.find((p) => p.id === currentPlaylistId) || playlists[0];
-  const currentTrack = currentPlaylist.tracks[trackIndex] || currentPlaylist.tracks[0];
+  const fallbackPlaylist: Playlist = {
+    id: "search-playlist",
+    name: "Search & Play",
+    description: "Search any song to listen",
+    sceneClass: "scene-a",
+    accentColor: "#1DB954",
+    tracks: [],
+  };
+
+  const fallbackTrack: Track = {
+    id: "placeholder",
+    title: "Search any song above 🔍",
+    artist: "Type a song name to play instantly",
+    film: "Echoa Player",
+    year: 2026,
+    duration: 180,
+    videoId: "",
+  };
+
+  const currentPlaylist = playlists.find((p) => p.id === currentPlaylistId) || playlists[0] || fallbackPlaylist;
+  const currentTrack = (currentPlaylist && currentPlaylist.tracks && currentPlaylist.tracks[trackIndex]) || (currentPlaylist && currentPlaylist.tracks && currentPlaylist.tracks[0]) || fallbackTrack;
 
   // Sync duration with current track metadata
   useEffect(() => {

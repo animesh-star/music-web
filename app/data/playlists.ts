@@ -18,13 +18,4 @@ export interface Playlist {
   tracks: Track[];
 }
 
-export const PLAYLISTS: Playlist[] = [
-  {
-    id: "my-playlist-1",
-    name: "My Playlist #1",
-    description: "Your Personal Playlist",
-    sceneClass: "scene-a",
-    accentColor: "#1DB954",
-    tracks: [],
-  },
-];
+export const PLAYLISTS: Playlist[] = [];
