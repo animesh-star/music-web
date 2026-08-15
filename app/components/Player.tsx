@@ -2642,7 +2642,7 @@ export default function Player({
           year: parseInt(item.releaseDate?.split("-")[0]) || 2024,
           duration: Math.floor(item.trackTimeMillis / 1000) || 180,
           videoId: "",
-          // audioUrl omitted so full song plays via videoId resolution
+          audioUrl: item.previewUrl || undefined,
         }));
         setSearchResults(tracks);
       }
@@ -2785,10 +2785,12 @@ export default function Player({
     if (track.audioUrl && audioRef.current) {
       audioRef.current.src = track.audioUrl;
       audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(() => {
-        setUseYtFallback(true);
-      });
-      return;
+      const playPromise = audioRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          setUseYtFallback(true);
+        });
+      }
     }
 
     setUseYtFallback(true);
