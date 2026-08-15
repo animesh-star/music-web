@@ -1418,7 +1418,7 @@ export default function Player({
 
   // Save exact playback state (track & seek time) to localStorage on time update
   useEffect(() => {
-    if (typeof window !== "undefined" && isHydrated && currentTrack && currentTime > 0) {
+    if (typeof window !== "undefined" && isHydrated && currentTrack && currentTrack.id !== "placeholder" && currentTime > 0) {
       try {
         localStorage.setItem("phoenix_saved_playback_state", JSON.stringify({
           currentPlaylistId,
@@ -1430,22 +1430,45 @@ export default function Player({
     }
   }, [currentTime, currentPlaylistId, trackIndex, currentTrack, isHydrated]);
 
-  // Restore exact seek position and track on client load
+  // Restore exact track & seek position on client load/refresh
   useEffect(() => {
     if (typeof window !== "undefined" && isHydrated) {
       try {
         const saved = localStorage.getItem("phoenix_saved_playback_state");
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (parsed.currentTime && parsed.currentTime > 0) {
-            initialSeekTimeRef.current = parsed.currentTime;
-            setCurrentTime(parsed.currentTime);
-          }
-          if (parsed.currentPlaylistId) {
-            setCurrentPlaylistId(parsed.currentPlaylistId);
-          }
-          if (parsed.trackIndex !== undefined) {
-            setTrackIndex(parsed.trackIndex);
+          if (parsed.currentTrack && parsed.currentTrack.id !== "placeholder") {
+            const restoredPlId = parsed.currentPlaylistId || "restored-playback-session";
+            const restoredTrack: Track = parsed.currentTrack;
+
+            const restoredPl: Playlist = {
+              id: restoredPlId,
+              name: "Recently Played",
+              description: "Restored playback session",
+              sceneClass: "scene-a",
+              accentColor: "#1DB954",
+              tracks: [restoredTrack],
+            };
+
+            setPlaylists(prev => {
+              const exists = prev.some(p => p.id === restoredPlId);
+              if (exists) {
+                return prev.map(p => p.id === restoredPlId ? restoredPl : p);
+              }
+              return [...prev, restoredPl];
+            });
+
+            setCurrentPlaylistId(restoredPlId);
+            setTrackIndex(parsed.trackIndex || 0);
+
+            if (parsed.currentTime && parsed.currentTime > 0) {
+              initialSeekTimeRef.current = parsed.currentTime;
+              setCurrentTime(parsed.currentTime);
+              playlistStatesRef.current[restoredPlId] = {
+                trackIndex: parsed.trackIndex || 0,
+                currentTime: parsed.currentTime,
+              };
+            }
           }
         }
       } catch {}
