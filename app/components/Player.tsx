@@ -1416,6 +1416,13 @@ export default function Player({
   const currentPlaylist = playlists.find((p) => p.id === currentPlaylistId) || playlists[0] || fallbackPlaylist;
   const currentTrack = (currentPlaylist && currentPlaylist.tracks && currentPlaylist.tracks[trackIndex]) || (currentPlaylist && currentPlaylist.tracks && currentPlaylist.tracks[0]) || fallbackTrack;
 
+  // Guarantee useYtFallback is enabled for any track without direct audioUrl (e.g. search results)
+  useEffect(() => {
+    if (currentTrack && !currentTrack.audioUrl && !useYtFallback) {
+      setUseYtFallback(true);
+    }
+  }, [currentTrack?.id, currentTrack?.audioUrl, useYtFallback]);
+
   // Sync duration with current track metadata
   useEffect(() => {
     if (currentTrack?.duration) {
@@ -2723,49 +2730,42 @@ export default function Player({
     if (track.audioUrl && audioRef.current) {
       audioRef.current.src = track.audioUrl;
       audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(() => {});
+      audioRef.current.play().catch(() => {
+        setUseYtFallback(true);
+      });
       return;
     }
 
-    if (track.videoId && playerRef.current) {
-      lastLoadedYtVideoId.current = track.videoId;
-      try {
-        playerRef.current.unMute();
-        playerRef.current.setVolume(100);
-        playerRef.current.loadVideoById(track.videoId);
-        playerRef.current.playVideo();
-      } catch {}
+    setUseYtFallback(true);
+
+    const playVideoId = (vid: string) => {
+      track.videoId = vid;
+      lastLoadedYtVideoId.current = vid;
+      if (playerRef.current && typeof playerRef.current.loadVideoById === "function") {
+        try {
+          playerRef.current.unMute();
+          playerRef.current.setVolume(100);
+          playerRef.current.loadVideoById(vid);
+          playerRef.current.playVideo();
+        } catch {}
+      }
+    };
+
+    if (track.videoId) {
+      playVideoId(track.videoId);
     } else {
       fetch(`/api/youtube-search?q=${encodeURIComponent(track.title + " " + track.artist)}`)
         .then(res => res.json())
         .then(data => {
           if (data.videoId) {
-            track.videoId = data.videoId;
-            lastLoadedYtVideoId.current = data.videoId;
-            if (playerRef.current) {
-              try {
-                playerRef.current.unMute();
-                playerRef.current.setVolume(100);
-                playerRef.current.loadVideoById(data.videoId);
-                playerRef.current.playVideo();
-              } catch {}
-            }
+            playVideoId(data.videoId);
           } else {
             fetch(`https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(track.title + " " + track.artist)}&filter=music_songs`)
               .then(res => res.json())
               .then(pipedData => {
                 if (pipedData && pipedData.items && pipedData.items[0]) {
                   const vid = pipedData.items[0].url.split("v=")[1];
-                  track.videoId = vid;
-                  lastLoadedYtVideoId.current = vid;
-                  if (playerRef.current) {
-                    try {
-                      playerRef.current.unMute();
-                      playerRef.current.setVolume(100);
-                      playerRef.current.loadVideoById(vid);
-                      playerRef.current.playVideo();
-                    } catch {}
-                  }
+                  if (vid) playVideoId(vid);
                 }
               })
               .catch(() => {});
