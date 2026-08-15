@@ -2555,6 +2555,63 @@ export default function Player({
     return () => window.removeEventListener('click', handleClickOutsideMusicList);
   }, [showMusicList]);
 
+  // MediaSession API Integration for Mobile Lock Screen & Background Playback Controls
+  useEffect(() => {
+    if (typeof window === "undefined" || !("mediaSession" in navigator)) return;
+
+    if (currentTrack) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentTrack.title,
+        artist: currentTrack.artist,
+        album: currentTrack.film || "Echoa Music",
+        artwork: [
+          { src: "/favicon.ico", sizes: "96x96", type: "image/png" },
+          { src: "/favicon.ico", sizes: "128x128", type: "image/png" },
+          { src: "/favicon.ico", sizes: "512x512", type: "image/png" },
+        ],
+      });
+    }
+
+    navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
+
+    if (duration > 0 && isFinite(currentTime) && isFinite(duration) && currentTime <= duration) {
+      try {
+        navigator.mediaSession.setPositionState({
+          duration: duration,
+          playbackRate: 1,
+          position: Math.max(0, Math.min(currentTime, duration)),
+        });
+      } catch {}
+    }
+  }, [currentTrack, isPlaying, currentTime, duration]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("mediaSession" in navigator)) return;
+
+    const setHandler = (action: any, handler: any) => {
+      try {
+        navigator.mediaSession.setActionHandler(action, handler);
+      } catch {}
+    };
+
+    setHandler("play", () => handlePlayPause());
+    setHandler("pause", () => handlePlayPause());
+    setHandler("previoustrack", () => handlePrevTrack());
+    setHandler("nexttrack", () => handleNextTrack());
+    setHandler("seekbackward", () => handleSkipBack10());
+    setHandler("seekforward", () => handleSkipForward10());
+    setHandler("seekto", (details: any) => {
+      if (details.seekTime !== undefined && details.seekTime !== null) {
+        handleSeek(details.seekTime);
+      }
+    });
+
+    return () => {
+      const actions = ["play", "pause", "previoustrack", "nexttrack", "seekbackward", "seekforward", "seekto"];
+      actions.forEach((act) => setHandler(act, null));
+    };
+  }, [handlePlayPause, handlePrevTrack, handleNextTrack, handleSkipBack10, handleSkipForward10, handleSeek]);
+
   const handlePlaySearchResult = (track: Track) => {
     // We create a temporary playlist for the search result so it fits into the player's architecture
     const tempPlaylistId = "spotify-search-result";

@@ -12,6 +12,14 @@ export const metadata: Metadata = {
     description: "Immersive single-page nostalgia music experience featuring interactive vinyl player, lofi beats, 90s street radio, and synthwave scenes.",
     images: ["/bg/scene-wide.png"],
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Echoa Music",
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
 };
 
 export default function RootLayout({
