@@ -1790,20 +1790,22 @@ export default function Player({
       fadeOutAndSwitch(() => handleSelectTrack(trackIndex));
       return;
     }
-    
+
     let nextIdx = trackIndex + 1;
     if (isShuffle) {
       nextIdx = Math.floor(Math.random() * currentPlaylist.tracks.length);
-    } else if (nextIdx >= currentPlaylist.tracks.length) {
-      if (repeatMode === 0) {
-        // Trigger Smart Auto-Play in same language sequence & mood!
-        autoPlayNextSimilarTrack(currentTrack);
-        return;
-      }
-      nextIdx = 0;
+      fadeOutAndSwitch(() => handleSelectTrack(nextIdx));
+      return;
     }
+
+    if (nextIdx >= currentPlaylist.tracks.length) {
+      // NEVER wrap back to song 0 (first searched song)! Always fetch and queue a brand new song of matching vibe & era!
+      autoPlayNextSimilarTrack(currentTrack);
+      return;
+    }
+
     fadeOutAndSwitch(() => handleSelectTrack(nextIdx));
-  }, [currentPlaylist.tracks.length, handleSelectTrack, trackIndex, repeatMode, isShuffle, fadeOutAndSwitch]);
+  }, [currentPlaylist.tracks.length, handleSelectTrack, trackIndex, repeatMode, isShuffle, fadeOutAndSwitch, currentTrack]);
 
   const handlePrevTrack = useCallback(() => {
     if (currentTime > 3) {
