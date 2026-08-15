@@ -566,6 +566,7 @@ const TransportControls = React.memo(function TransportControls({
 
 // DESKTOP PLAYER COMPONENT
 interface DesktopPlayerProps {
+  showFullLyrics?: boolean;
   onToggleFullLyrics?: () => void;
   currentLyricText?: string;
   currentTrack: Track;
@@ -601,6 +602,7 @@ interface DesktopPlayerProps {
 }
 
 const DesktopPlayer = React.memo(function DesktopPlayer({
+  showFullLyrics,
   onToggleFullLyrics,
   currentLyricText,
   currentTrack,
@@ -751,7 +753,7 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
               className="text-[10px] text-emerald-400 hover:text-emerald-200 font-bold bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 px-2 py-0.5 rounded-full transition-all cursor-pointer shrink-0"
               title="Expand Full Lyrics"
             >
-              Expand ⤢
+              {showFullLyrics ? 'Compress ⤢' : 'Expand ⤢'}
             </button>
           </div>
         )}
@@ -782,6 +784,7 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
 
 // MOBILE PLAYER COMPONENT
 interface MobilePlayerProps {
+  showFullLyrics?: boolean;
   onToggleFullLyrics?: () => void;
   currentLyricText?: string;
   currentTrack: Track;
@@ -817,6 +820,7 @@ interface MobilePlayerProps {
 }
 
 const MobilePlayer = React.memo(function MobilePlayer({
+  showFullLyrics,
   onToggleFullLyrics,
   currentLyricText,
   currentTrack,
@@ -961,7 +965,7 @@ const MobilePlayer = React.memo(function MobilePlayer({
             className="text-[9px] text-emerald-400 hover:text-emerald-200 font-bold bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 px-2 py-0.5 rounded-full transition-all cursor-pointer shrink-0"
             title="Expand Full Lyrics"
           >
-            Expand ⤢
+            {showFullLyrics ? 'Compress ⤢' : 'Expand ⤢'}
           </button>
         </div>
       )}
@@ -1392,10 +1396,37 @@ export default function Player({
               text: text.trim()
             }));
             setLyrics(parsed);
+          } else {
+            // Fallback lyrics for tracks without online lyrics match
+            const d = currentTrack.duration || 180;
+            setLyrics([
+              { time: 0, text: `♪ Listening to ${cleanTitle}` },
+              { time: Math.floor(d * 0.15), text: `♪ ${cleanTitle} - ${cleanArtist}` },
+              { time: Math.floor(d * 0.35), text: `♪ Echoa Music • ${currentTrack.film || "Original Version"}` },
+              { time: Math.floor(d * 0.65), text: `♪ ${cleanTitle} by ${cleanArtist}` },
+              { time: Math.floor(d * 0.85), text: `♪ ${cleanTitle} • Echoa Player` }
+            ]);
           }
+        } else {
+          // Fallback lyrics for tracks without online match
+          const d = currentTrack.duration || 180;
+          setLyrics([
+            { time: 0, text: `♪ Listening to ${cleanTitle}` },
+            { time: Math.floor(d * 0.15), text: `♪ ${cleanTitle} - ${cleanArtist}` },
+            { time: Math.floor(d * 0.35), text: `♪ Echoa Music • ${currentTrack.film || "Original Version"}` },
+            { time: Math.floor(d * 0.65), text: `♪ ${cleanTitle} by ${cleanArtist}` },
+            { time: Math.floor(d * 0.85), text: `♪ ${cleanTitle} • Echoa Player` }
+          ]);
         }
       })
-      .catch((err) => console.error("LRCLIB Fetch Error:", err));
+      .catch(() => {
+        const d = currentTrack.duration || 180;
+        setLyrics([
+          { time: 0, text: `♪ Listening to ${cleanTitle}` },
+          { time: Math.floor(d * 0.2), text: `♪ ${cleanTitle} - ${cleanArtist}` },
+          { time: Math.floor(d * 0.5), text: `♪ ${cleanTitle} • Echoa Player` }
+        ]);
+      });
   }, [currentTrack?.id, currentTrack?.title, currentTrack?.artist]);
 
   const currentLyric = lyrics.find((line, i) => {
@@ -2365,7 +2396,7 @@ export default function Player({
           year: parseInt(item.releaseDate?.split("-")[0]) || 2024,
           duration: Math.floor(item.trackTimeMillis / 1000) || 180,
           videoId: "",
-          audioUrl: item.previewUrl,
+          // audioUrl omitted so full song plays via videoId resolution
         }));
         setSearchResults(tracks);
       }
@@ -2621,6 +2652,7 @@ export default function Player({
 
       {/* Desktop Player */}
       <DesktopPlayer
+        showFullLyrics={showFullLyrics}
         onToggleFullLyrics={() => setShowFullLyrics(prev => !prev)}
         currentLyricText={currentLyric?.text}
         currentTrack={currentTrack}
@@ -2658,6 +2690,7 @@ export default function Player({
 
       {/* Mobile Player */}
       <MobilePlayer
+        showFullLyrics={showFullLyrics}
         onToggleFullLyrics={() => setShowFullLyrics(prev => !prev)}
         currentLyricText={currentLyric?.text}
         currentTrack={currentTrack}
