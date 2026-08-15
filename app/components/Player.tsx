@@ -662,30 +662,27 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
       {/* Track Info & Progress */}
       <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
         <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0 flex items-center gap-2">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm sm:text-base font-bold text-rose-300 drop-shadow-sm whitespace-nowrap overflow-x-auto no-scrollbar tracking-tight">
-                  {currentTrack.title}
-                </h2>
-                <button
-                  onClick={onToggleFavorite}
-                  className="p-1 text-white/60 hover:text-rose-400 transition-all active:scale-125 cursor-pointer shrink-0"
-                  aria-label="Toggle Favorite"
-                  title={isFavorite ? "Remove from Favorites" : "Add to Favorites"}
-                >
-                  <Heart
-                    className={`w-4 h-4 transition-all duration-300 ${isFavorite
-                        ? "fill-rose-500 text-rose-500 scale-110 drop-shadow-[0_0_10px_rgba(244,63,94,0.9)]"
-                        : "text-white/60 hover:text-rose-400"
-                      }`}
-                  />
-                </button>
-              </div>
-              <p className="text-[12.5px] text-white/70 truncate font-normal">
-                {currentTrack.artist} {currentTrack.film ? `• ${currentTrack.film}` : ""}
-              </p>
-            </div>
+          <div className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto no-scrollbar whitespace-nowrap">
+            <h2 className="text-sm sm:text-base font-bold text-rose-300 drop-shadow-sm whitespace-nowrap shrink-0 tracking-tight">
+              {currentTrack.title}
+            </h2>
+            <span className="text-white/40 text-xs shrink-0">•</span>
+            <p className="text-xs sm:text-sm text-white/80 font-medium whitespace-nowrap shrink-0">
+              {currentTrack.artist} {currentTrack.film ? `(${currentTrack.film})` : ""}
+            </p>
+            <button
+              onClick={onToggleFavorite}
+              className="p-1 text-white/60 hover:text-rose-400 transition-all active:scale-125 cursor-pointer shrink-0 ml-1"
+              aria-label="Toggle Favorite"
+              title={isFavorite ? "Remove from Favorites" : "Add to Favorites"}
+            >
+              <Heart
+                className={`w-4 h-4 transition-all duration-300 ${isFavorite
+                    ? "fill-rose-500 text-rose-500 scale-110 drop-shadow-[0_0_10px_rgba(244,63,94,0.9)]"
+                    : "text-white/60 hover:text-rose-400"
+                  }`}
+              />
+            </button>
           </div>
 
           {/* Playlist selector dropdown & Music List Toggle Button */}
@@ -2218,10 +2215,9 @@ export default function Player({
     if (useYtFallback) {
       if (playerRef.current && typeof playerRef.current.loadVideoById === "function") {
         if (lastLoadedYtVideoId.current !== currentTrack.videoId) {
-          const seek = initialSeekTimeRef.current;
+          const seek = Math.floor(initialSeekTimeRef.current > 0 ? initialSeekTimeRef.current : (currentTime > 0 ? currentTime : 0));
           if (seek > 0) {
             playerRef.current.loadVideoById({ videoId: currentTrack.videoId, startSeconds: seek });
-            initialSeekTimeRef.current = 0;
           } else {
             playerRef.current.loadVideoById(currentTrack.videoId);
           }
