@@ -2280,6 +2280,7 @@ export default function Player({
 
   // User interactions
   const handlePlayPause = useCallback(() => {
+    if (silentAudioRef.current && isPlaying) { silentAudioRef.current.pause(); } else if (silentAudioRef.current) { silentAudioRef.current.play().catch(() => {}); }
     if (spotifyPlayerRef.current) {
       spotifyPlayerRef.current.togglePlay().then(() => setIsPlaying((prev) => !prev)).catch(() => {});
       return;
@@ -2442,6 +2443,24 @@ export default function Player({
       }
     }
   }, [currentPlaylistId, trackIndex, currentTime, playlists]);
+
+  // Continuous Silent Audio Thread to grant permanent background & lock screen audio execution to mobile browsers (iOS & Android)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (!silentAudioRef.current) {
+      const audio = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA");
+      audio.loop = true;
+      audio.volume = 0.001;
+      silentAudioRef.current = audio;
+    }
+
+    if (isPlaying) {
+      silentAudioRef.current.play().catch(() => {});
+    } else {
+      silentAudioRef.current.pause();
+    }
+  }, [isPlaying]);
 
   // Update Media Session API for mobile lockscreen integrations
   useEffect(() => {
