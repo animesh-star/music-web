@@ -750,7 +750,7 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
             <button
               type="button"
               onClick={onToggleFullLyrics}
-              className="text-[10px] text-emerald-400 hover:text-emerald-200 font-bold bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 px-2 py-0.5 rounded-full transition-all cursor-pointer shrink-0"
+              className="lyrics-toggle-btn text-[10px] text-emerald-400 hover:text-emerald-200 font-bold bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 px-2 py-0.5 rounded-full transition-all cursor-pointer shrink-0"
               title="Expand Full Lyrics"
             >
               {showFullLyrics ? 'Compress ⤢' : 'Expand ⤢'}
@@ -962,7 +962,7 @@ const MobilePlayer = React.memo(function MobilePlayer({
           <button
             type="button"
             onClick={onToggleFullLyrics}
-            className="text-[9px] text-emerald-400 hover:text-emerald-200 font-bold bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 px-2 py-0.5 rounded-full transition-all cursor-pointer shrink-0"
+            className="lyrics-toggle-btn text-[9px] text-emerald-400 hover:text-emerald-200 font-bold bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 px-2 py-0.5 rounded-full transition-all cursor-pointer shrink-0"
             title="Expand Full Lyrics"
           >
             {showFullLyrics ? 'Compress ⤢' : 'Expand ⤢'}
@@ -2428,6 +2428,18 @@ export default function Player({
     return () => window.removeEventListener('click', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (!showFullLyrics) return;
+    const handleClickOutsideLyrics = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target && !target.closest('.full-lyrics-container') && !target.closest('.lyrics-toggle-btn')) {
+        setShowFullLyrics(false);
+      }
+    };
+    window.addEventListener('click', handleClickOutsideLyrics);
+    return () => window.removeEventListener('click', handleClickOutsideLyrics);
+  }, [showFullLyrics]);
+
   const handlePlaySearchResult = (track: Track) => {
     // We create a temporary playlist for the search result so it fits into the player's architecture
     const tempPlaylistId = "spotify-search-result";
@@ -2680,7 +2692,7 @@ export default function Player({
 
       {/* Full Synced Lyrics Container (Expands directly UNDER the music bar) */}
       {showFullLyrics && (
-        <div className="mt-3 w-full bg-neutral-900/95 backdrop-blur-2xl border border-white/20 rounded-3xl p-5 shadow-2xl z-[80] max-h-96 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-300">
+        <div className="full-lyrics-container mt-3 w-full bg-neutral-900/95 backdrop-blur-2xl border border-white/20 rounded-3xl p-5 shadow-2xl z-[80] max-h-96 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-300">
           <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/10 sticky top-0 bg-neutral-900/95 backdrop-blur-xl z-10">
             <div>
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
