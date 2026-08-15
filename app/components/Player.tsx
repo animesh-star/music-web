@@ -2095,29 +2095,14 @@ export default function Player({
 
   // HTML5 Audio element setup & handling (plays direct audioUrl or local audio)
   useEffect(() => {
-    // Handle direct audioUrl (e.g. from search results) regardless of production/ytFallback
-    if (currentTrack?.audioUrl) {
-      if (playerRef.current) {
-        try { playerRef.current.pauseVideo(); } catch {}
-      }
-      const audio = audioRef.current || new Audio();
-      audioRef.current = audio;
-      if (audio.src !== currentTrack.audioUrl) {
-        audio.src = currentTrack.audioUrl;
-        audio.currentTime = 0;
-      }
-      if (isPlaying) {
-        audio.play().catch(e => console.error("Audio playback error:", e));
-      } else {
-        audio.pause();
-      }
-      return;
-    }
-
-    // Skip HTML5 audio when YouTube fallback is active for videoId tracks
-    if (IS_PRODUCTION || useYtFallback) {
-      if (audioRef.current && !currentTrack?.audioUrl) {
-        audioRef.current.pause();
+    // When YouTube fallback is active, force HTML5 audio to be COMPLETELY paused and cleared so no double audio plays
+    if (useYtFallback || IS_PRODUCTION) {
+      if (audioRef.current) {
+        try {
+          audioRef.current.pause();
+          audioRef.current.removeAttribute("src");
+          audioRef.current.load();
+        } catch {}
       }
       return;
     }
@@ -2451,7 +2436,7 @@ export default function Player({
     if (!silentAudioRef.current) {
       const audio = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA");
       audio.loop = true;
-      audio.volume = 0.001;
+      audio.volume = 0; audio.muted = true;
       silentAudioRef.current = audio;
     }
 
@@ -2801,15 +2786,13 @@ export default function Player({
     setCurrentTime(0);
     setIsPlaying(true);
 
-    if (track.audioUrl && audioRef.current) {
-      audioRef.current.src = track.audioUrl;
-      audioRef.current.currentTime = 0;
-      const playPromise = audioRef.current.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(() => {
-          setUseYtFallback(true);
-        });
-      }
+    // Force single audio playback via YouTube streaming engine to prevent any double audio glitch
+    if (audioRef.current) {
+      try {
+        audioRef.current.pause();
+        audioRef.current.removeAttribute("src");
+        audioRef.current.load();
+      } catch {}
     }
 
     setUseYtFallback(true);
