@@ -1936,21 +1936,21 @@ export default function Player({
           },
           onError: (event) => {
             if (isCancelled || !useYtFallbackRef.current) return;
-            try {
-              trackAnalytics("youtube_video_error", {
-                code: event.data,
-                videoId: currentTrack.videoId,
-                trackId: currentTrack.id,
-              });
-            } catch {
-              // ignore
-            }
-            // Auto-skip to the next track if the YouTube video is restricted or unavailable
-            setTimeout(() => {
-              if (handleNextTrackRef.current) {
-                handleNextTrackRef.current();
-              }
-            }, 500);
+            console.warn("YouTube player error:", event.data);
+            // Re-resolve alternative video stream for the current track instead of auto-skipping songs
+            fetch(`/api/youtube-search?q=${encodeURIComponent(currentTrack.title + " " + currentTrack.artist + " audio")}`)
+              .then(res => res.json())
+              .then(data => {
+                if (data.videoId && data.videoId !== currentTrack.videoId && playerRef.current) {
+                  currentTrack.videoId = data.videoId;
+                  lastLoadedYtVideoId.current = data.videoId;
+                  try {
+                    playerRef.current.loadVideoById(data.videoId);
+                    playerRef.current.playVideo();
+                  } catch {}
+                }
+              })
+              .catch(() => {});
           },
         },
       });
@@ -2165,9 +2165,17 @@ export default function Player({
     };
 
     const handleEnded = () => {
-      setIsPlaying(true);
-      if (handleNextTrackRef.current) {
-        handleNextTrackRef.current();
+      const dur = audio.duration || 0;
+      const cur = audio.currentTime || 0;
+      // Only auto-advance if the song actually played to its natural conclusion
+      if (dur > 0 && cur >= Math.max(5, dur - 3)) {
+        setIsPlaying(true);
+        if (handleNextTrackRef.current) {
+          handleNextTrackRef.current();
+        }
+      } else {
+        // Stream load delay or error — switch to YouTube fallback without skipping the user's song!
+        setUseYtFallback(true);
       }
     };
 
