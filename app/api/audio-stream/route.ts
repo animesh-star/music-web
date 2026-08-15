@@ -26,10 +26,11 @@ export async function GET(request: Request) {
 
   // 2. Try Invidious Public Instances
   const invidiousInstances = [
+    "https://invidious.f5.si",
     "https://invidious.nerdvpn.de",
-    "https://inv.privacydev.net",
-    "https://invidious.drgns.space",
-    "https://vid.puffyan.us",
+    "https://inv.nadeko.net",
+    "https://invidious.tiekoetter.com",
+    "https://yt.chocolatemoo53.com",
   ];
 
   for (const instance of invidiousInstances) {

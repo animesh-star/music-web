@@ -95,6 +95,25 @@ function loadYouTubeAPI(): Promise<void> {
 // In local dev, audio files exist in public/audio/ so try HTML5 first.
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
+const fallbackPlaylist: Playlist = {
+  id: "search-playlist",
+  name: "Search & Play",
+  description: "Search any song to listen",
+  sceneClass: "scene-a",
+  accentColor: "#1DB954",
+  tracks: [],
+};
+
+const fallbackTrack: Track = {
+  id: "placeholder",
+  title: "Search any song above 🔍",
+  artist: "Type a song name to play instantly",
+  film: "Echoa Player",
+  year: 2026,
+  duration: 180,
+  videoId: "",
+};
+
 // FULLSCREEN PARTICLE CANVAS (Spawns smooth loving heart particle celebration for 5.5 seconds ONLY when adding to favorites)
 interface ParticleCanvasProps {
   burstTrigger: { x: number; y: number; id: number } | null;
@@ -702,7 +721,7 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
                 ))}
                 {!spotifyLoggedIn && (
                   <option value="connect-spotify" className="bg-neutral-900 text-[#1DB954] font-semibold">
-                    🎵 Connect Echoa Stream
+                    🎵 Connect Spotify
                   </option>
                 )}
               </select>
@@ -916,7 +935,7 @@ const MobilePlayer = React.memo(function MobilePlayer({
                 ))}
                 {!spotifyLoggedIn && (
                   <option value="connect-spotify" className="bg-neutral-900 text-[#1DB954] font-semibold">
-                    🎵 Connect Echoa Stream
+                    🎵 Connect Spotify
                   </option>
                 )}
               </select>
@@ -1391,24 +1410,7 @@ export default function Player({
     }
   }, [isPlaying]);
 
-  const fallbackPlaylist: Playlist = {
-    id: "search-playlist",
-    name: "Search & Play",
-    description: "Search any song to listen",
-    sceneClass: "scene-a",
-    accentColor: "#1DB954",
-    tracks: [],
-  };
 
-  const fallbackTrack: Track = {
-    id: "placeholder",
-    title: "Search any song above 🔍",
-    artist: "Type a song name to play instantly",
-    film: "Echoa Player",
-    year: 2026,
-    duration: 180,
-    videoId: "",
-  };
 
   const currentPlaylist = playlists.find((p) => p.id === currentPlaylistId) || playlists[0] || fallbackPlaylist;
   const currentTrack = (currentPlaylist && currentPlaylist.tracks && currentPlaylist.tracks[trackIndex]) || (currentPlaylist && currentPlaylist.tracks && currentPlaylist.tracks[0]) || fallbackTrack;
@@ -1493,13 +1495,22 @@ export default function Player({
 
   // Resolve videoId dynamically for search tracks that don't have videoId or audioUrl
   useEffect(() => {
-    if (!currentTrack || currentTrack.audioUrl || currentTrack.videoId) return;
+    if (!currentTrack || currentTrack.id === "placeholder" || currentTrack.audioUrl || currentTrack.videoId) return;
 
     fetch(`/api/youtube-search?q=${encodeURIComponent(currentTrack.title + " " + currentTrack.artist)}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.videoId) {
           currentTrack.videoId = data.videoId;
+          setPlaylists(prev => prev.map(p => {
+            if (p.id === currentPlaylistId) {
+              return {
+                ...p,
+                tracks: p.tracks.map(t => t.id === currentTrack.id ? { ...t, videoId: data.videoId } : t)
+              };
+            }
+            return p;
+          }));
           if (playerRef.current && isPlaying) {
             playerRef.current.loadVideoById(data.videoId);
             playerRef.current.playVideo();
@@ -1511,6 +1522,15 @@ export default function Player({
               if (pipedData && pipedData.items && pipedData.items[0]) {
                 const vid = pipedData.items[0].url.split("v=")[1];
                 currentTrack.videoId = vid;
+                setPlaylists(prev => prev.map(p => {
+                  if (p.id === currentPlaylistId) {
+                    return {
+                      ...p,
+                      tracks: p.tracks.map(t => t.id === currentTrack.id ? { ...t, videoId: vid } : t)
+                    };
+                  }
+                  return p;
+                }));
                 if (playerRef.current && isPlaying) {
                   playerRef.current.loadVideoById(vid);
                   playerRef.current.playVideo();
@@ -1762,6 +1782,15 @@ export default function Player({
         .then((data) => {
           if (data.videoId) {
             targetTrack.videoId = data.videoId;
+            setPlaylists(prev => prev.map(p => {
+              if (p.id === currentPlaylistId) {
+                return {
+                  ...p,
+                  tracks: p.tracks.map(t => t.id === targetTrack.id ? { ...t, videoId: data.videoId } : t)
+                };
+              }
+              return p;
+            }));
             playVideo(data.videoId, true, targetTrack.id.replace('spotify-', '').replace('search-', ''));
           } else {
             // Client-side Piped API fallback for searched songs
@@ -1771,6 +1800,15 @@ export default function Player({
                 if (pipedData && pipedData.items && pipedData.items[0]) {
                   const vid = pipedData.items[0].url.split("v=")[1];
                   targetTrack.videoId = vid;
+                  setPlaylists(prev => prev.map(p => {
+                    if (p.id === currentPlaylistId) {
+                      return {
+                        ...p,
+                        tracks: p.tracks.map(t => t.id === targetTrack.id ? { ...t, videoId: vid } : t)
+                      };
+                    }
+                    return p;
+                  }));
                   playVideo(vid, false, "");
                 }
               })
@@ -1855,8 +1893,7 @@ export default function Player({
 
       const startSec = Math.floor(initialSeekTimeRef.current || 0);
 
-      playerRef.current = new window.YT.Player(targetElem, {
-        videoId: currentTrack.videoId,
+      const playerOptions: any = {
         playerVars: {
           autoplay: useYtFallbackRef.current ? 1 : 0,
           mute: 1, // Always start muted — browsers block unmuted autoplay; we unmute after user interaction
@@ -1873,7 +1910,7 @@ export default function Player({
           showinfo: 0,
         },
         events: {
-          onReady: (event) => {
+          onReady: (event: any) => {
             if (isCancelled) return;
             const dur = event.target.getDuration();
             if (dur && isFinite(dur) && dur > 0 && dur < 86400) {
@@ -1892,7 +1929,7 @@ export default function Player({
               event.target.pauseVideo();
             } catch {}
           },
-          onStateChange: (event) => {
+          onStateChange: (event: any) => {
             if (isCancelled) return;
             // Ignore YouTube player state events if HTML5 audio is the active player
             if (!useYtFallbackRef.current) return;
@@ -1936,7 +1973,7 @@ export default function Player({
               }
             }
           },
-          onError: (event) => {
+          onError: (event: any) => {
             if (isCancelled || !useYtFallbackRef.current) return;
             console.warn("YouTube player error:", event.data);
             // Re-resolve alternative video stream for the current track instead of auto-skipping songs
@@ -1945,6 +1982,15 @@ export default function Player({
               .then(data => {
                 if (data.videoId && data.videoId !== currentTrack.videoId && playerRef.current) {
                   currentTrack.videoId = data.videoId;
+                  setPlaylists(prev => prev.map(p => {
+                    if (p.id === currentPlaylistId) {
+                      return {
+                        ...p,
+                        tracks: p.tracks.map(t => t.id === currentTrack.id ? { ...t, videoId: data.videoId } : t)
+                      };
+                    }
+                    return p;
+                  }));
                   lastLoadedYtVideoId.current = data.videoId;
                   try {
                     playerRef.current.loadVideoById(data.videoId);
@@ -1955,7 +2001,13 @@ export default function Player({
               .catch(() => {});
           },
         },
-      });
+      };
+
+      if (currentTrack.videoId) {
+        playerOptions.videoId = currentTrack.videoId;
+      }
+
+      playerRef.current = new window.YT.Player(targetElem, playerOptions);
     };
 
     initPlayer();
@@ -2127,6 +2179,13 @@ export default function Player({
     audioRef.current = audio;
     audio.preload = "auto";
     audio.crossOrigin = "anonymous";
+
+    if (useYtFallback) {
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+      return;
+    }
 
     const streamUrl = currentTrack.audioUrl ? currentTrack.audioUrl : (currentTrack.videoId ? `/api/audio-stream?v=${currentTrack.videoId}` : "");
     if (!streamUrl) return;
@@ -2851,6 +2910,15 @@ export default function Player({
 
     const playVideoId = (vid: string) => {
       track.videoId = vid;
+      setPlaylists(prev => prev.map(p => {
+        if (p.id === tempPlaylistId) {
+          return {
+            ...p,
+            tracks: p.tracks.map(t => t.id === track.id ? { ...t, videoId: vid } : t)
+          };
+        }
+        return p;
+      }));
       lastLoadedYtVideoId.current = vid;
       if (playerRef.current && typeof playerRef.current.loadVideoById === "function") {
         try {
@@ -3217,7 +3285,7 @@ export default function Player({
                 className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-500 hover:to-blue-400 text-white text-[11px] font-semibold px-3 py-1.5 rounded-full transition-all duration-200 active:scale-95 cursor-pointer shadow-md"
               >
                 <img src="/echoa-logo.png" className="w-3.5 h-3.5 rounded-sm object-cover" alt="Echoa" />
-                <span>Connect Echoa</span>
+                <span>Connect Spotify</span>
               </button>
             </div>
           )}
