@@ -268,10 +268,8 @@ const Vinyl = React.memo(function Vinyl({
             className="w-full h-full object-cover rounded-full pointer-events-none scale-125 select-none"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-neutral-900 via-neutral-950 to-emerald-950 rounded-full scale-125 select-none">
-            <svg className="w-8 h-8 text-[#1DB954]" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm4.586 14.424c-.18.295-.565.387-.86.207-2.377-1.454-5.37-1.783-8.894-.982-.336.075-.668-.135-.744-.47-.076-.336.135-.668.47-.743 3.856-.88 7.15-.504 9.822 1.13.295.178.387.563.206.858zm1.225-2.72c-.227.367-.707.487-1.074.26-2.72-1.672-6.87-2.157-10.082-1.182-.413.125-.847-.107-.972-.52-.125-.413.107-.847.52-.972 3.673-1.114 8.243-.574 11.35 1.34.367.226.487.707.258 1.074zm.105-2.833C14.92 8.947 9.97 8.783 7.11 9.65c-.49.15-1.01-.13-1.16-.62-.15-.49.13-1.01.62-1.16 3.3-.998 8.75-.812 12.27 1.28.44.26.58.83.32 1.27-.26.44-.83.58-1.27.32z"/>
-            </svg>
+          <div className="w-full h-full flex items-center justify-center bg-neutral-950 rounded-full scale-125 select-none overflow-hidden p-1.5">
+            <img src="/echoa-logo.png" alt="Echoa" className="w-full h-full object-cover rounded-full shadow-lg" />
           </div>
         )}
 
