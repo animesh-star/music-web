@@ -1533,10 +1533,20 @@ export default function Player({
 
     const handleVisibilityOrLock = () => {
       if (document.visibilityState === "hidden" && isPlaying && audio) {
-        if (audio.paused) {
-          const syncTime = currentTime > 0 ? currentTime : (savedSeekPositionRef.current || 0);
+        let syncTime = currentTime > 0 ? currentTime : (savedSeekPositionRef.current || 0);
+        if (playerRef.current && typeof playerRef.current.getCurrentTime === "function") {
+          try {
+            const ytTime = playerRef.current.getCurrentTime();
+            if (isFinite(ytTime) && ytTime > 0) {
+              syncTime = ytTime;
+            }
+          } catch {}
+        }
+
+        if (audio.paused || Math.abs(audio.currentTime - syncTime) > 2) {
           try {
             audio.currentTime = Math.max(0, syncTime);
+            audio.volume = 1;
             audio.play().catch(() => {});
           } catch {}
         }
