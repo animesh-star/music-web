@@ -13,7 +13,6 @@ export interface Playlist {
   id: string;
   name: string;
   description: string;
-  sceneClass: string;
   accentColor: string;
   tracks: Track[];
 }
@@ -21,9 +20,8 @@ export interface Playlist {
 export const PLAYLISTS: Playlist[] = [
   {
     id: "lofi-monsoon",
-    name: "Scene A",
-    description: "Scene A",
-    sceneClass: "scene-a",
+    name: "Lofi & Melodies",
+    description: "Relaxing Hindi Lofi & Soft Romantic Melodies",
     accentColor: "#f43f5e", // Rose / Warm Red
     tracks: [
       { id: "a1", title: "Dard Dilo Ke", artist: "Mohd. Irfan & Himesh Reshammiya", film: "The Xpose", year: 2014, duration: 302, videoId: "NIYznrc4-sA" },
@@ -40,9 +38,8 @@ export const PLAYLISTS: Playlist[] = [
   },
   {
     id: "90s-nostalgia",
-    name: "Scene B",
-    description: "Scene B",
-    sceneClass: "scene-b",
+    name: "90s Bollywood Classics",
+    description: "Golden Era Classics & Retro Ghazals",
     accentColor: "#f59e0b", // Amber / Warm Gold
     tracks: [
       { id: "b1", title: "Deewana Hua Badal", artist: "Mohammed Rafi & Asha Bhosle", film: "Kashmir Ki Kali", year: 1964, duration: 387, videoId: "0Q5VkLIiTQk" },
@@ -57,9 +54,8 @@ export const PLAYLISTS: Playlist[] = [
   },
   {
     id: "punjabi-modern",
-    name: "Scene C",
-    description: "Scene C",
-    sceneClass: "scene-c",
+    name: "Punjabi Modern Hits",
+    description: "Trending Punjabi Beats & Pop Hits",
     accentColor: "#eab308", // Vibrant Gold / Neon Glow
     tracks: [
       { id: "c1", title: "Jackpot", artist: "Cheema Y & Gur Sidhu", film: "Single", year: 2024, duration: 192, videoId: "yM5APO87aNU" },

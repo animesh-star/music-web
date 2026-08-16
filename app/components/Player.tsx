@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Play, Pause, SkipBack, SkipForward, Disc, Layers, RotateCcw, RotateCw, Heart, ListMusic, X, Music, Shuffle, Repeat, Repeat1, Plus } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Disc, Layers, RotateCcw, RotateCw, Heart, ListMusic, X, Music, Shuffle, Repeat, Repeat1, Plus, Trash2 } from "lucide-react";
 import { PLAYLISTS, Track, Playlist } from "../data/playlists";
 import { track as trackAnalytics } from "@vercel/analytics";
 
@@ -11,6 +11,16 @@ function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
   return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+}
+
+function normalizeTitle(t: string): string {
+  if (!t) return "";
+  return t
+    .toLowerCase()
+    .replace(/\[.*?\]|\(.*?\)/g, "")
+    .replace(/feat\..*|ft\..*/gi, "")
+    .replace(/[^a-z0-9]/gi, "")
+    .trim();
 }
 
 declare global {
@@ -99,7 +109,6 @@ const fallbackPlaylist: Playlist = {
   id: "search-playlist",
   name: "Search & Play",
   description: "Search any song to listen",
-  sceneClass: "scene-a",
   accentColor: "#1DB954",
   tracks: [],
 };
@@ -1031,6 +1040,7 @@ export default function Player({
   const [duration, setDuration] = useState<number>(180);
   const [showMusicList, setShowMusicList] = useState<boolean>(false);
   const [isHydrated, setIsHydrated] = useState<boolean>(false);
+  const [hasStartedSession, setHasStartedSession] = useState<boolean>(false);
 
   // Spotify integration state
   const [playlists, setPlaylists] = useState<Playlist[]>(PLAYLISTS);
@@ -1081,7 +1091,6 @@ export default function Player({
       id: `user-pl-${Date.now()}`,
       name: name.trim(),
       description: "Custom User Playlist",
-      sceneClass: "scene-a",
       accentColor: "#1DB954",
       tracks: trackToAdd ? [trackToAdd] : [],
     };
@@ -1094,6 +1103,27 @@ export default function Player({
     setTrackToAddToPlaylist(null);
 
     setPlaylistToastMsg(`Created "${newPl.name}"${trackToAdd ? " & added song!" : ""}`);
+    setTimeout(() => setPlaylistToastMsg(null), 3000);
+  };
+
+  const handleDeletePlaylist = (playlistId: string) => {
+    if (!playlistId.startsWith("user-pl-")) return;
+
+    const targetPl = playlists.find(p => p.id === playlistId);
+    const updatedCustom = customPlaylists.filter(p => p.id !== playlistId);
+    saveCustomPlaylists(updatedCustom);
+    setPlaylists(prev => prev.filter(p => p.id !== playlistId));
+
+    if (currentPlaylistId === playlistId) {
+      const remaining = playlists.filter(p => p.id !== playlistId);
+      if (remaining.length > 0) {
+        setCurrentPlaylistId(remaining[0].id);
+        setTrackIndex(0);
+        setCurrentTime(0);
+      }
+    }
+
+    setPlaylistToastMsg(`Deleted playlist "${targetPl?.name || "Custom"}"`);
     setTimeout(() => setPlaylistToastMsg(null), 3000);
   };
 
@@ -1152,6 +1182,7 @@ export default function Player({
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastLoadedYtVideoId = useRef<string | null>(null);
   const musicListRef = useRef<HTMLDivElement | null>(null);
+  const fullLyricsContainerRef = useRef<HTMLDivElement | null>(null);
   const iframeWrapperRef = useRef<HTMLDivElement | null>(null);
 
   // Per-playlist playback memory store (remembers last track & exact timestamp for Scene A, B, C)
@@ -1163,6 +1194,7 @@ export default function Player({
 
   const initialSeekTimeRef = useRef<number>(0);
   const savedSeekPositionRef = useRef<number>(0);
+  const lastSaveTimeRef = useRef<number>(0);
   const playedTrackIdsRef = useRef<Set<string>>(new Set());
   const userPausedRef = useRef<boolean>(true);
 
@@ -1200,6 +1232,71 @@ export default function Player({
     }
   }, []);
 
+  // User Interest Profile & Smart Recommendations Engine
+  const fetchUserRecommendations = useCallback(async (interestsList?: string[]) => {
+    try {
+      let terms = interestsList;
+      if (!terms && typeof window !== "undefined") {
+        const saved = localStorage.getItem("phoenix_user_music_interests");
+        if (saved) terms = JSON.parse(saved);
+      }
+      if (!terms || terms.length === 0) {
+        terms = ["arijit singh", "punjabi hits", "bollywood romantic"];
+      }
+
+      const res = await fetch(`/api/user-recommendations?interests=${encodeURIComponent(terms.join(","))}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.recommendations) && data.recommendations.length > 0) {
+          const recommendedPl: Playlist = {
+            id: "user-recommended-vibes",
+            name: "🌟 Recommended For You",
+            description: "Based on your search & listening history",
+            accentColor: "#ec4899",
+            tracks: data.recommendations,
+          };
+
+          setPlaylists(prev => {
+            const exists = prev.some(p => p.id === "user-recommended-vibes");
+            if (exists) {
+              return prev.map(p => p.id === "user-recommended-vibes" ? recommendedPl : p);
+            }
+            return [recommendedPl, ...prev];
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Error loading user recommendations:", err);
+    }
+  }, []);
+
+  const recordUserInterest = useCallback((queryOrTrack: string | Track) => {
+    if (typeof window === "undefined") return;
+    try {
+      const existing = localStorage.getItem("phoenix_user_music_interests");
+      let interests: string[] = existing ? JSON.parse(existing) : [];
+
+      let term = "";
+      if (typeof queryOrTrack === "string") {
+        term = queryOrTrack.trim();
+      } else if (queryOrTrack) {
+        term = `${queryOrTrack.artist} ${queryOrTrack.title}`;
+      }
+
+      if (term && term.length >= 2) {
+        interests = [term, ...interests.filter(t => t.toLowerCase() !== term.toLowerCase())].slice(0, 10);
+        localStorage.setItem("phoenix_user_music_interests", JSON.stringify(interests));
+        fetchUserRecommendations(interests);
+      }
+    } catch {}
+  }, [fetchUserRecommendations]);
+
+  useEffect(() => {
+    if (isHydrated) {
+      fetchUserRecommendations();
+    }
+  }, [isHydrated, fetchUserRecommendations]);
+
   // Spotify Data Loader (Playlists, Liked Songs, Top Tracks)
   const loadSpotifyData = useCallback(async (token: string) => {
     setSpotifyLoggedIn(true);
@@ -1234,7 +1331,6 @@ export default function Player({
             id: "spotify-liked-songs",
             name: "Spotify: Liked Songs",
             description: "Your Saved Tracks",
-            sceneClass: "scene-c",
             accentColor: "#1DB954",
             tracks: likedTracks,
             spotifyUrl: likedData.next // Store next URL for background loading
@@ -1253,7 +1349,6 @@ export default function Player({
           id: `spotify-pl-${pl.id}`,
           name: `Spotify: ${pl.name}`,
           description: pl.description || "",
-          sceneClass: "scene-c",
           accentColor: "#1DB954",
           tracks: [], // Empty initially, loaded on click
           spotifyUrl: pl.tracks.href // Store API URL to fetch tracks later
@@ -1410,23 +1505,66 @@ export default function Player({
     }
   }, [isPlaying]);
 
-
-
   const currentPlaylist = playlists.find((p) => p.id === currentPlaylistId) || playlists[0] || fallbackPlaylist;
   const currentTrack = (currentPlaylist && currentPlaylist.tracks && currentPlaylist.tracks[trackIndex]) || (currentPlaylist && currentPlaylist.tracks && currentPlaylist.tracks[0]) || fallbackTrack;
 
-  // Save exact playback state (track & seek time) to localStorage on time update
+  // Lock Screen & Background Audio Bridge: Seamless background & screen-lock playback via backend audio stream engine
+  useEffect(() => {
+    if (!currentTrack || currentTrack.id === "placeholder") return;
+
+    const streamUrl = currentTrack.audioUrl
+      ? currentTrack.audioUrl
+      : (currentTrack.videoId ? `/api/audio-stream?v=${currentTrack.videoId}` : "");
+
+    if (!streamUrl) return;
+
+    if (!audioRef.current) {
+      audioRef.current = new Audio();
+      audioRef.current.preload = "auto";
+      audioRef.current.crossOrigin = "anonymous";
+    }
+
+    const audio = audioRef.current;
+    const fullUrl = streamUrl.startsWith("http") ? streamUrl : window.location.origin + streamUrl;
+
+    if (audio.src !== fullUrl) {
+      audio.src = fullUrl;
+    }
+
+    const handleVisibilityOrLock = () => {
+      if (document.visibilityState === "hidden" && isPlaying && audio) {
+        if (audio.paused) {
+          const syncTime = currentTime > 0 ? currentTime : (savedSeekPositionRef.current || 0);
+          try {
+            audio.currentTime = Math.max(0, syncTime);
+            audio.play().catch(() => {});
+          } catch {}
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityOrLock);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityOrLock);
+    };
+  }, [currentTrack, isPlaying, currentTime]);
+
+  // Save exact playback state (track & seek time) to localStorage on time update (throttled to 3s to prevent UI lag)
   useEffect(() => {
     if (typeof window !== "undefined" && isHydrated && currentTrack && currentTrack.id !== "placeholder" && currentTime > 0) {
       savedSeekPositionRef.current = currentTime;
-      try {
-        localStorage.setItem("phoenix_saved_playback_state", JSON.stringify({
-          currentPlaylistId,
-          trackIndex,
-          currentTime,
-          currentTrack,
-        }));
-      } catch {}
+      const now = Date.now();
+      if (now - lastSaveTimeRef.current > 3000) {
+        lastSaveTimeRef.current = now;
+        try {
+          localStorage.setItem("phoenix_saved_playback_state", JSON.stringify({
+            currentPlaylistId,
+            trackIndex,
+            currentTime,
+            currentTrack,
+          }));
+        } catch {}
+      }
     }
   }, [currentTime, currentPlaylistId, trackIndex, currentTrack, isHydrated]);
 
@@ -1438,37 +1576,45 @@ export default function Player({
         if (saved) {
           const parsed = JSON.parse(saved);
           if (parsed.currentTrack && parsed.currentTrack.id !== "placeholder") {
-            const restoredPlId = parsed.currentPlaylistId || "restored-playback-session";
+            const restoredPlId = parsed.currentPlaylistId || "trending-indian";
             const restoredTrack: Track = parsed.currentTrack;
 
-            const restoredPl: Playlist = {
-              id: restoredPlId,
-              name: "Recently Played",
-              description: "Restored playback session",
-              sceneClass: "scene-a",
-              accentColor: "#1DB954",
-              tracks: [restoredTrack],
-            };
-
             setPlaylists(prev => {
-              const exists = prev.some(p => p.id === restoredPlId);
-              if (exists) {
-                return prev.map(p => p.id === restoredPlId ? restoredPl : p);
+              const existing = prev.find(p => p.id === restoredPlId);
+              if (existing) {
+                if (!existing.tracks.some(t => t.id === restoredTrack.id)) {
+                  return prev.map(p => p.id === restoredPlId ? { ...p, tracks: [restoredTrack, ...p.tracks] } : p);
+                }
+                return prev;
               }
+              const restoredPl: Playlist = {
+                id: restoredPlId,
+                name: "Recently Played",
+                description: "Restored playback session",
+                accentColor: "#1DB954",
+                tracks: [restoredTrack],
+              };
               return [...prev, restoredPl];
             });
 
             setCurrentPlaylistId(restoredPlId);
-            setTrackIndex(parsed.trackIndex || 0);
 
-            if (parsed.currentTime && parsed.currentTime > 0) {
+            let targetIdx = parsed.trackIndex || 0;
+            const targetPl = PLAYLISTS.find(p => p.id === restoredPlId);
+            if (targetPl && targetPl.tracks.length > 0) {
+              const foundIdx = targetPl.tracks.findIndex(t => t.id === restoredTrack.id);
+              if (foundIdx !== -1) targetIdx = foundIdx;
+            }
+            setTrackIndex(targetIdx);
+
+            if (parsed.currentTime !== undefined && parsed.currentTime >= 0) {
               savedSeekPositionRef.current = parsed.currentTime;
               initialSeekTimeRef.current = parsed.currentTime;
               setCurrentTime(parsed.currentTime);
               setIsPlaying(false);
               userPausedRef.current = true;
               playlistStatesRef.current[restoredPlId] = {
-                trackIndex: parsed.trackIndex || 0,
+                trackIndex: targetIdx,
                 currentTime: parsed.currentTime,
               };
             }
@@ -1490,7 +1636,7 @@ export default function Player({
     if (currentTrack?.duration) {
       setDuration(currentTrack.duration);
     }
-  }, [currentTrack.id, currentTrack.duration]);
+  }, [currentTrack?.id, currentTrack?.duration]);
 
 
   // Resolve videoId dynamically for search tracks that don't have videoId or audioUrl
@@ -1543,14 +1689,48 @@ export default function Player({
       .catch(() => {});
   }, [currentTrack?.id, isPlaying]);
 
-  // Fetch Live Synced Lyrics from LRCLIB API
+  // Fetch & Parse Live Synced Lyrics (LRC timestamps, LRCLIB API, local cache & smooth fallback)
   useEffect(() => {
-    if (!currentTrack) return;
-    setLyrics([]);
-    
+    if (!currentTrack || currentTrack.id === "placeholder") return;
+
     const cleanTitle = currentTrack.title.replace(/\[.*?\]|\(.*?\)/g, "").trim();
     const cleanArtist = currentTrack.artist.replace(/Unknown/i, "").split(",")[0].split("&")[0].trim();
+    const d = currentTrack.duration || 180;
 
+    const generateDefaultLyrics = () => {
+      const step = Math.max(5, Math.floor(d / 8));
+      return [
+        { time: 0, text: `♪ ${cleanTitle}` },
+        { time: Math.min(5, step), text: `♪ ${cleanTitle} • ${cleanArtist}` },
+        { time: step * 2, text: `♪ ${currentTrack.film ? currentTrack.film : "Echoa Music Melodies"}` },
+        { time: step * 3, text: `♪ ${cleanTitle}` },
+        { time: step * 4, text: `♪ Artist: ${cleanArtist}` },
+        { time: step * 5, text: `♪ ${cleanTitle} — ${cleanArtist}` },
+        { time: step * 6, text: `♪ ${currentTrack.film ? `Film: ${currentTrack.film}` : "Echoa Premium Audio"}` },
+        { time: step * 7, text: `♪ ${cleanTitle} • End of Track` }
+      ];
+    };
+
+    // 1. Load cached synced lyrics instantly (0ms delay)
+    const cacheKey = `phoenix_lyrics_${currentTrack.id}`;
+    let hasCache = false;
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const parsedCache = JSON.parse(cached);
+        if (Array.isArray(parsedCache) && parsedCache.length > 0) {
+          setLyrics(parsedCache);
+          hasCache = true;
+        }
+      }
+    } catch {}
+
+    // 2. Set default structured lyrics immediately if no cache exists
+    if (!hasCache) {
+      setLyrics(generateDefaultLyrics());
+    }
+
+    // 3. Fetch online LRCLIB lyrics in background
     const searchUrl = cleanArtist
       ? `https://lrclib.net/api/search?track_name=${encodeURIComponent(cleanTitle)}&artist_name=${encodeURIComponent(cleanArtist)}`
       : `https://lrclib.net/api/search?q=${encodeURIComponent(cleanTitle)}`;
@@ -1559,21 +1739,32 @@ export default function Player({
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) {
-          const match = data.find((d: any) => d.syncedLyrics) || data[0];
+          const match = data.find((item: any) => item.syncedLyrics) || data[0];
           if (match && match.syncedLyrics) {
             const lines = match.syncedLyrics.split("\n");
-            const parsed = lines
-              .map((line: string) => {
-                const m = line.match(/^\[(\d+):(\d+\.\d+)\](.*)/);
-                if (m) {
+            const parsed: { time: number; text: string }[] = [];
+
+            lines.forEach((line: string) => {
+              // Match all timestamp formats: [mm:ss.xx], [mm:ss:xx], [mm:ss]
+              const matches = Array.from(line.matchAll(/\[(\d+):(\d+)(?:[\.:](\d+))?\]/g));
+              const lyricText = line.replace(/\[\d+:\d+(?:[\.:]\d+)?\]/g, "").trim();
+
+              if (matches.length > 0 && lyricText) {
+                matches.forEach((m) => {
                   const mins = parseInt(m[1], 10);
-                  const secs = parseFloat(m[2]);
-                  return { time: mins * 60 + secs, text: m[3].trim() };
-                }
-                return null;
-              })
-              .filter(Boolean);
-            setLyrics(parsed as { time: number; text: string }[]);
+                  const secs = parseInt(m[2], 10);
+                  const ms = m[3] ? parseFloat(`0.${m[3]}`) : 0;
+                  parsed.push({ time: mins * 60 + secs + ms, text: lyricText });
+                });
+              }
+            });
+
+            parsed.sort((a, b) => a.time - b.time);
+
+            if (parsed.length > 0) {
+              setLyrics(parsed);
+              try { localStorage.setItem(cacheKey, JSON.stringify(parsed)); } catch {}
+            }
           } else if (match && match.plainLyrics) {
             const lines = match.plainLyrics.split("\n").filter((l: string) => l.trim().length > 0);
             const step = (currentTrack.duration || 180) / Math.max(lines.length, 1);
@@ -1582,37 +1773,11 @@ export default function Player({
               text: text.trim()
             }));
             setLyrics(parsed);
-          } else {
-            // Fallback lyrics for tracks without online lyrics match
-            const d = currentTrack.duration || 180;
-            setLyrics([
-              { time: 0, text: `♪ Listening to ${cleanTitle}` },
-              { time: Math.floor(d * 0.15), text: `♪ ${cleanTitle} - ${cleanArtist}` },
-              { time: Math.floor(d * 0.35), text: `♪ Echoa Music • ${currentTrack.film || "Original Version"}` },
-              { time: Math.floor(d * 0.65), text: `♪ ${cleanTitle} by ${cleanArtist}` },
-              { time: Math.floor(d * 0.85), text: `♪ ${cleanTitle} • Echoa Player` }
-            ]);
+            try { localStorage.setItem(cacheKey, JSON.stringify(parsed)); } catch {}
           }
-        } else {
-          // Fallback lyrics for tracks without online match
-          const d = currentTrack.duration || 180;
-          setLyrics([
-            { time: 0, text: `♪ Listening to ${cleanTitle}` },
-            { time: Math.floor(d * 0.15), text: `♪ ${cleanTitle} - ${cleanArtist}` },
-            { time: Math.floor(d * 0.35), text: `♪ Echoa Music • ${currentTrack.film || "Original Version"}` },
-            { time: Math.floor(d * 0.65), text: `♪ ${cleanTitle} by ${cleanArtist}` },
-            { time: Math.floor(d * 0.85), text: `♪ ${cleanTitle} • Echoa Player` }
-          ]);
         }
       })
-      .catch(() => {
-        const d = currentTrack.duration || 180;
-        setLyrics([
-          { time: 0, text: `♪ Listening to ${cleanTitle}` },
-          { time: Math.floor(d * 0.2), text: `♪ ${cleanTitle} - ${cleanArtist}` },
-          { time: Math.floor(d * 0.5), text: `♪ ${cleanTitle} • Echoa Player` }
-        ]);
-      });
+      .catch(() => {});
   }, [currentTrack?.id, currentTrack?.title, currentTrack?.artist]);
 
   const currentLyric = lyrics.find((line, i) => {
@@ -1620,16 +1785,22 @@ export default function Player({
     return currentTime >= line.time && (!nextLine || currentTime < nextLine.time);
   });
 
-
-  // Broadcast scene changes and persist active playlist ID
+  // Auto-scroll full lyrics container to keep active lyric centered
   useEffect(() => {
-    if (onSceneChange) {
-      onSceneChange(currentPlaylist.sceneClass);
+    if (!showFullLyrics || !fullLyricsContainerRef.current) return;
+    const activeElem = fullLyricsContainerRef.current.querySelector(".active-lyric-line");
+    if (activeElem) {
+      activeElem.scrollIntoView({ behavior: "smooth", block: "center" });
     }
+  }, [currentLyric?.text, showFullLyrics]);
+
+
+  // Persist active playlist ID
+  useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem("phoenix_active_playlist_id", currentPlaylistId);
     }
-  }, [currentPlaylist, currentPlaylistId, onSceneChange]);
+  }, [currentPlaylistId]);
 
   // Flush exact playback position to localStorage on browser refresh / page unload
   useEffect(() => {
@@ -1679,6 +1850,12 @@ export default function Player({
     const targetTrack = currentPlaylist.tracks[idx];
     if (!targetTrack) return;
 
+    setHasStartedSession(true);
+
+    const norm = normalizeTitle(targetTrack.title);
+    playedTrackIdsRef.current.add(targetTrack.id);
+    if (norm) playedTrackIdsRef.current.add(norm);
+
     userPausedRef.current = false;
     playlistStatesRef.current[currentPlaylistId] = {
       trackIndex: idx,
@@ -1692,10 +1869,19 @@ export default function Player({
       }
     }
 
+    // ALWAYS START CHANGED SONG AT EXACTLY 0:00 SECONDS
     setTrackIndex(idx);
     setCurrentTime(0);
     initialSeekTimeRef.current = 0;
     savedSeekPositionRef.current = 0;
+    
+    if (audioRef.current) {
+      try { audioRef.current.currentTime = 0; } catch {}
+    }
+    if (playerRef.current && typeof playerRef.current.seekTo === "function") {
+      try { playerRef.current.seekTo(0, true); } catch {}
+    }
+
     setIsPlaying(true);
 
         const playVideo = (vid: string, isSpotifyTarget?: boolean, spotifyRealId?: string, targetAudioUrl?: string) => {
@@ -2019,113 +2205,148 @@ export default function Player({
   }, [isHydrated]);
 
 
-  // Smart Auto-Play Recommendation Engine (matches language, artist vibe & mood)
+  // Smart Auto-Play Recommendation Engine (Strict Vibe Continuity & Title Deduplication)
   const autoPlayNextSimilarTrack = useCallback(async (currentTr: Track) => {
     if (!currentTr) return;
 
     const title = currentTr.title.toLowerCase();
     const artist = currentTr.artist.toLowerCase();
+    const mainArtist = currentTr.artist.split("&")[0].split(",")[0].trim();
 
-    // 1. Detect Language & Vibe
-    let language = "hindi"; // default prioritize Indian music
-    let moodSearch = "romantic bollywood hits";
+    // 1. Detect Vibe & Mood Cluster (e.g. Hindi Romantic, Punjabi Modern, 90s Ghazal, English Pop)
+    let vibeCategory = "Hindi Romantic";
+    let moodSearch = `${mainArtist} bollywood romantic songs`;
+    let countryParam = "in";
 
-    const isPunjabi = /sidhu|shubh|aujla|diljit|dhillon|cheema|jordan|sandhu|gur|punjabi|bhangra|pind/i.test(artist + " " + title);
+    const isPunjabi = /sidhu|shubh|aujla|diljit|dhillon|cheema|jordan|sandhu|gur|punjabi|bhangra|pind|love|jackpot|tutor/i.test(artist + " " + title);
     const isSouth = /ar rahman|anirudh|sriram|dsp|thaman|spb|tamil|telugu|kannada|malayalam/i.test(artist + " " + title);
-    const isEnglish = /[a-z]/i.test(artist) && !/arijit|singh|shreya|gheshat|atman|mohd|irfan|kailash|kher|rahat|atef|badshah|king|darshan|himesh|anuv|b praak|sonu|singh|kakkad|neha|tanishk|jubin|nautiyal/i.test(artist);
+    const isGhazal = /deewana|isharon|neele|phirkiwali|rafi|lata|mehdi|ghulam|kashmir|hamraaz|paap/i.test(artist + " " + title);
+    const isEnglish = /[a-z]/i.test(artist) && !/arijit|singh|shreya|mohd|irfan|kailash|kher|rahat|badshah|king|darshan|himesh|anuv|b praak|sonu|jubin|nautiyal/i.test(artist);
 
     if (isPunjabi) {
-      language = "punjabi";
-      moodSearch = `${artist.split("&")[0].trim()} punjabi latest hits`;
+      vibeCategory = "Punjabi Modern";
+      moodSearch = `${mainArtist} punjabi latest hits`;
+    } else if (isGhazal) {
+      vibeCategory = "90s Bollywood Ghazal";
+      moodSearch = `${mainArtist} classic ghazal songs`;
     } else if (isSouth) {
-      language = "south";
-      moodSearch = `${artist.split("&")[0].trim()} top hit songs`;
+      vibeCategory = "South Hits";
+      moodSearch = `${mainArtist} top South hits`;
     } else if (isEnglish) {
-      language = "english";
-      moodSearch = `${artist.split("&")[0].trim()} similar pop hits`;
+      vibeCategory = "English Pop";
+      moodSearch = `${mainArtist} popular songs`;
+      countryParam = "us";
     } else {
       // Hindi / Bollywood
-      if (/dard|ishq|pyar|dil|tum|tere|rab|roya|duaa|lagan|tera/i.test(title)) {
-        moodSearch = `${artist.split("&")[0].trim()} bollywood romantic songs`;
-      } else if (/party|club|remix|nach|bhangra|dhol|masti/i.test(title)) {
-        moodSearch = `${artist.split("&")[0].trim()} bollywood party dance hits`;
+      if (/party|club|remix|nach|bhangra|dhol|masti/i.test(title)) {
+        vibeCategory = "Bollywood Party Dance";
+        moodSearch = `${mainArtist} bollywood dance party hits`;
       } else {
-        moodSearch = `${artist.split("&")[0].trim()} top hindi songs`;
+        vibeCategory = "Hindi Romantic";
+        moodSearch = `${mainArtist} hindi romantic hits`;
       }
     }
 
     try {
-      const countryParam = language === "english" ? "us" : "in";
-      const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(moodSearch)}&entity=song&country=${countryParam}&limit=15`);
-      if (res.ok) {
-        const data = await res.json();
-        const candidates: Track[] = data.results.map((item: any) => ({
-          id: `autoplay-${item.trackId}`,
-          title: item.trackName,
-          artist: item.artistName,
-          film: item.collectionName || "",
-          year: parseInt(item.releaseDate?.split("-")[0]) || 2024,
-          duration: Math.floor(item.trackTimeMillis / 1000) || 180,
-          videoId: "",
-        })).filter((t: Track) => t.title.toLowerCase() !== currentTr.title.toLowerCase());
+      // Try backend recommendations API first with strict deduplication
+      const excludedTitlesStr = Array.from(playedTrackIdsRef.current).join("|");
+      const backendRes = await fetch(`/api/user-recommendations?vibe=${encodeURIComponent(vibeCategory)}&artist=${encodeURIComponent(mainArtist)}&exclude=${encodeURIComponent(excludedTitlesStr)}`);
 
-        if (candidates.length > 0) {
-          const nextTrack = candidates[Math.floor(Math.random() * Math.min(candidates.length, 6))];
+      let candidateList: Track[] = [];
 
-          // Mark next track as played
-          playedTrackIdsRef.current.add(nextTrack.id);
-          playedTrackIdsRef.current.add(nextTrack.title.toLowerCase().trim());
-
-          setPlaylistToastMsg(`📻 Next Vibe: ${nextTrack.title} • ${nextTrack.artist}`);
-          setTimeout(() => setPlaylistToastMsg(null), 4000);
-
-          setPlaylists(prev => {
-            const exists = prev.some(p => p.id === currentPlaylistId);
-            if (!exists) {
-              const fallbackPl: Playlist = {
-                id: currentPlaylistId,
-                name: "Recently Played",
-                description: "Playback session",
-                sceneClass: "scene-a",
-                accentColor: "#1DB954",
-                tracks: [currentTr, nextTrack],
-              };
-              return [...prev, fallbackPl];
-            }
-            return prev.map(p => {
-              if (p.id === currentPlaylistId) {
-                return { ...p, tracks: [...p.tracks, nextTrack] };
-              }
-              return p;
-            });
-          });
-
-          // Instantly play the newly added track from the latest state queue
-          setTimeout(() => {
-            setPlaylists(latestPlaylists => {
-              const pl = latestPlaylists.find(p => p.id === currentPlaylistId);
-              if (pl && pl.tracks && pl.tracks.length > 0) {
-                const targetIndex = pl.tracks.length - 1;
-                userPausedRef.current = false;
-                setTrackIndex(targetIndex);
-                setCurrentTime(0);
-                savedSeekPositionRef.current = 0;
-                initialSeekTimeRef.current = 0;
-                setIsPlaying(true);
-              }
-              return latestPlaylists;
-            });
-          }, 150);
-          return;
+      if (backendRes.ok) {
+        const backendData = await backendRes.json();
+        if (backendData && Array.isArray(backendData.recommendations)) {
+          candidateList = backendData.recommendations;
         }
       }
+
+      // Fallback query if backend returns few tracks
+      if (candidateList.length === 0) {
+        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(moodSearch)}&entity=song&country=${countryParam}&limit=20`);
+        if (res.ok) {
+          const data = await res.json();
+          candidateList = data.results.map((item: any) => ({
+            id: `autoplay-${item.trackId}`,
+            title: item.trackName,
+            artist: item.artistName,
+            film: item.collectionName || "",
+            year: parseInt(item.releaseDate?.split("-")[0]) || 2024,
+            duration: Math.floor(item.trackTimeMillis / 1000) || 180,
+            videoId: "",
+          }));
+        }
+      }
+
+      // STRICT DEDUPLICATION FILTER: Remove any track with an already played/queued title
+      const validCandidates = candidateList.filter((t: Track) => {
+        const norm = normalizeTitle(t.title);
+        const currNorm = normalizeTitle(currentTr.title);
+        if (!norm || norm === currNorm) return false;
+        if (playedTrackIdsRef.current.has(t.id) || playedTrackIdsRef.current.has(norm)) return false;
+
+        // Check if title already exists in current playlist
+        const currentPl = playlists.find(p => p.id === currentPlaylistId);
+        if (currentPl && currentPl.tracks.some(existing => normalizeTitle(existing.title) === norm)) {
+          return false;
+        }
+
+        return true;
+      });
+
+      if (validCandidates.length > 0) {
+        const nextTrack = validCandidates[Math.floor(Math.random() * Math.min(validCandidates.length, 5))];
+        const nextNorm = normalizeTitle(nextTrack.title);
+
+        // Record title & ID in played deduplication set
+        playedTrackIdsRef.current.add(nextTrack.id);
+        if (nextNorm) playedTrackIdsRef.current.add(nextNorm);
+
+        setPlaylistToastMsg(`📻 Next ${vibeCategory}: ${nextTrack.title} • ${nextTrack.artist}`);
+        setTimeout(() => setPlaylistToastMsg(null), 4000);
+
+        setPlaylists(prev => {
+          const exists = prev.some(p => p.id === currentPlaylistId);
+          if (!exists) {
+            const fallbackPl: Playlist = {
+              id: currentPlaylistId,
+              name: "Recently Played",
+              description: "Playback session",
+              accentColor: "#1DB954",
+              tracks: [currentTr, nextTrack],
+            };
+            return [...prev, fallbackPl];
+          }
+          return prev.map(p => {
+            if (p.id === currentPlaylistId) {
+              return { ...p, tracks: [...p.tracks, nextTrack] };
+            }
+            return p;
+          });
+        });
+
+        setTimeout(() => {
+          setPlaylists(latestPlaylists => {
+            const pl = latestPlaylists.find(p => p.id === currentPlaylistId);
+            if (pl && pl.tracks && pl.tracks.length > 0) {
+              const targetIndex = pl.tracks.length - 1;
+              userPausedRef.current = false;
+              setTrackIndex(targetIndex);
+              setCurrentTime(0);
+              savedSeekPositionRef.current = 0;
+              initialSeekTimeRef.current = 0;
+              setIsPlaying(true);
+            }
+            return latestPlaylists;
+          });
+        }, 150);
+        return;
+      }
     } catch (err) {
-      console.error("AutoPlay genre fetch error:", err);
+      console.error("AutoPlay vibe match error:", err);
     }
 
-    // Fallback if network recommendation fails
-    setPlaylistToastMsg("📻 Auto-playing next track...");
-    setTimeout(() => setPlaylistToastMsg(null), 3000);
+    // Fallback if no new tracks found
     handleSelectTrack(0);
   }, [currentPlaylistId, playlists, handleSelectTrack]);
 
@@ -2308,16 +2529,17 @@ export default function Player({
           const d = playerRef.current.getDuration();
           if (t >= 0 && isFinite(t)) {
             setCurrentTime(t);
+            savedSeekPositionRef.current = t;
             playlistStatesRef.current[currentPlaylistId] = {
               trackIndex,
               currentTime: t,
             };
-            if (typeof window !== "undefined") {
+            const now = Date.now();
+            if (now - lastSaveTimeRef.current > 3000 && typeof window !== "undefined") {
+              lastSaveTimeRef.current = now;
               try {
                 localStorage.setItem("phoenix_playlist_states", JSON.stringify(playlistStatesRef.current));
-              } catch {
-                // ignore
-              }
+              } catch {}
             }
           }
           if (d > 0 && isFinite(d) && d < 86400) setDuration(d);
@@ -2723,6 +2945,7 @@ export default function Player({
     if (e) e.preventDefault();
     if (!searchQuery.trim()) return;
     
+    recordUserInterest(searchQuery);
     setIsSearching(true);
     const token = getCookie("spotify_access_token");
     
@@ -2770,6 +2993,21 @@ export default function Player({
     }
     setIsSearching(false);
   }
+
+  // Disable accidental page refresh hotkeys (F5, Ctrl+R, Cmd+R)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.key === "F5" ||
+        ((e.ctrlKey || e.metaKey) && (e.key === "r" || e.key === "R"))
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -2879,12 +3117,13 @@ export default function Player({
   }, [handlePlayPause, handlePrevTrack, handleNextTrack, handleSkipBack10, handleSkipForward10, handleSeek]);
 
   const handlePlaySearchResult = (track: Track) => {
+    setHasStartedSession(true);
+    recordUserInterest(track);
     const tempPlaylistId = `search-play-${Date.now()}`;
     const searchPl: Playlist = {
       id: tempPlaylistId,
       name: "Search Result",
       description: "Your searched track",
-      sceneClass: "scene-a",
       accentColor: "#1DB954",
       tracks: [track],
     };
@@ -2900,6 +3139,14 @@ export default function Player({
     setCurrentPlaylistId(tempPlaylistId);
     setTrackIndex(0);
     setCurrentTime(0);
+
+    if (audioRef.current) {
+      try { audioRef.current.currentTime = 0; } catch {}
+    }
+    if (playerRef.current && typeof playerRef.current.seekTo === "function") {
+      try { playerRef.current.seekTo(0, true); } catch {}
+    }
+
     setIsPlaying(true);
 
     // Force single audio playback via YouTube streaming engine to prevent any double audio glitch
@@ -2965,6 +3212,79 @@ export default function Player({
       {/* Loving Heart Burst Particles (Appears for 5.5s on favorite click only) */}
       <ParticleCanvas burstTrigger={burstTrigger} />
 
+      {!hasStartedSession ? (
+        <div className="w-full bg-black/40 border border-white/15 rounded-3xl p-6 backdrop-blur-2xl shadow-2xl flex flex-col items-center text-center animate-in fade-in zoom-in-95 duration-300">
+          <div className="relative group">
+            <div className="absolute -inset-1 rounded-3xl bg-gradient-to-r from-rose-500 via-emerald-500 to-amber-500 opacity-60 blur-xl group-hover:opacity-100 transition duration-500" />
+            <img
+              src="/echoa-logo.png"
+              alt="Echoa Logo"
+              className="relative w-24 h-24 rounded-2xl object-cover shadow-2xl border border-white/20"
+            />
+          </div>
+          <h1 className="text-2xl font-black tracking-tight text-white mt-4">Echoa Music</h1>
+          <p className="text-xs text-white/60 mt-1 max-w-xs leading-relaxed">
+            Search any song or pick a playlist to start listening
+          </p>
+
+          {/* Search Bar inside Welcome Hero */}
+          <div className="w-full relative search-container mt-5 z-50">
+            <form onSubmit={handleSearch} className="relative flex items-center">
+              <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/50 pointer-events-none">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              </div>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search any song..."
+                className="w-full bg-white/10 border border-white/20 rounded-full py-2.5 pl-9 pr-8 text-xs text-white placeholder:text-white/50 focus:outline-none focus:border-rose-500/60 shadow-lg backdrop-blur-xl transition-all"
+              />
+              {searchQuery && (
+                <button type="button" onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white p-1">
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </form>
+            {searchResults.length > 0 && (
+              <div className="absolute top-full mt-2 w-full bg-neutral-900/95 backdrop-blur-xl border border-white/15 rounded-2xl shadow-2xl z-[70] max-h-60 overflow-y-auto p-2">
+                <div className="flex justify-between items-center px-2 pb-2 mb-2 border-b border-white/10">
+                  <span className="text-xs text-white/70 font-semibold">Search Results</span>
+                  <button type="button" onClick={() => setSearchQuery("")} className="text-white/50 hover:text-white p-1">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="flex flex-col gap-1">
+                  {searchResults.map((tr) => (
+                    <button
+                      key={tr.id}
+                      onClick={() => handlePlaySearchResult(tr)}
+                      type="button"
+                      className="flex items-center justify-between text-left p-2 rounded-xl hover:bg-white/10 transition-colors cursor-pointer"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-xs text-white font-medium truncate">{tr.title}</p>
+                        <p className="text-[10px] text-white/50 truncate">{tr.artist}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={() => {
+              setShowMusicList(true);
+            }}
+            className="w-full mt-4 bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white font-bold text-xs py-3 px-4 rounded-full shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <Music className="w-4 h-4" />
+            Browse Playlists & Play
+          </button>
+        </div>
+      ) : (
+        <>
       {/* Now Playing Active Header Banner (Single Horizontal Line) */}
       {currentTrack && currentTrack.id !== "placeholder" && (
         <div className="w-full bg-rose-500/15 border border-rose-500/30 rounded-2xl px-4 py-2 text-center backdrop-blur-xl shadow-lg animate-in fade-in slide-in-from-top-1 overflow-hidden whitespace-nowrap">
@@ -3108,8 +3428,9 @@ export default function Player({
         onToggleShuffle={() => setIsShuffle(prev => !prev)}
         repeatMode={repeatMode}
         onToggleRepeat={() => setRepeatMode(prev => (prev + 1) % 3 as 0|1|2)}
-        
       />
+      </>
+      )}
 
       {/* Playlist Toast Notification */}
       {playlistToastMsg && (
@@ -3206,7 +3527,7 @@ export default function Player({
             <div className="flex items-center gap-2">
               <ListMusic className="w-4 h-4 text-rose-400" />
               <span className="text-sm font-semibold text-white tracking-wide">
-                {currentPlaylist.name} • Music List ({currentPlaylist.tracks.length} Songs)
+                {currentPlaylist.name} • Songs ({currentPlaylist.tracks.length})
               </span>
             </div>
             <button
@@ -3215,6 +3536,69 @@ export default function Player({
             >
               <X className="w-4 h-4" />
             </button>
+          </div>
+
+          {/* Spotify-styled Aesthetic Playlists Manager */}
+          <div className="mb-4 pb-3 border-b border-white/10">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-white/80 uppercase tracking-wider flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-rose-400" /> Playlists & Library
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowCreatePlaylistModal(true)}
+                className="text-[11px] bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 font-bold px-2.5 py-1 rounded-full border border-rose-500/30 transition-all flex items-center gap-1 cursor-pointer"
+              >
+                <Plus className="w-3 h-3" /> + New Playlist
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              {playlists.map((pl) => {
+                const isSelected = pl.id === currentPlaylistId;
+                const isCustom = pl.id.startsWith("user-pl-");
+                return (
+                  <div
+                    key={pl.id}
+                    onClick={() => handleSwitchPlaylist(pl.id)}
+                    className={`group relative flex items-center justify-between p-2 rounded-2xl border transition-all cursor-pointer select-none overflow-hidden ${
+                      isSelected
+                        ? "bg-rose-500/20 border-rose-500/50 text-white shadow-md"
+                        : "bg-white/5 hover:bg-white/10 border-white/10 text-white/80 hover:text-white"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div
+                        style={{ backgroundColor: pl.accentColor || "#f43f5e" }}
+                        className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform"
+                      >
+                        <Music className="w-3.5 h-3.5 text-white" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold truncate leading-tight">{pl.name}</p>
+                        <p className="text-[10px] text-white/50 truncate font-mono">
+                          {pl.tracks.length} Songs
+                        </p>
+                      </div>
+                    </div>
+
+                    {isCustom && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeletePlaylist(pl.id);
+                        }}
+                        className="opacity-70 hover:opacity-100 p-1.5 rounded-full hover:bg-rose-500/30 text-rose-400 transition-all shrink-0 cursor-pointer"
+                        title="Delete Playlist"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           <div className="space-y-1">
@@ -3299,7 +3683,10 @@ export default function Player({
 
       {/* Full Synced Lyrics Container (Expands directly UNDER the music bar) */}
       {showFullLyrics && (
-        <div className="full-lyrics-container mt-3 w-full bg-neutral-900/95 backdrop-blur-2xl border border-white/20 rounded-3xl p-5 shadow-2xl z-[80] max-h-96 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-300">
+        <div
+          ref={fullLyricsContainerRef}
+          className="full-lyrics-container mt-3 w-full bg-neutral-900/95 backdrop-blur-2xl border border-white/20 rounded-3xl p-5 shadow-2xl z-[80] max-h-96 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-300"
+        >
           <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/10 sticky top-0 bg-neutral-900/95 backdrop-blur-xl z-10">
             <div>
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
@@ -3326,11 +3713,10 @@ export default function Player({
                     key={idx}
                     onClick={() => {
                       handleSeek(line.time);
-                      setShowFullLyrics(false);
                     }}
                     className={`text-xs sm:text-sm transition-all duration-300 cursor-pointer py-1.5 px-3 rounded-xl ${
                       isCurrent
-                        ? "text-emerald-300 font-bold text-base bg-emerald-500/20 border border-emerald-500/30 shadow-[0_0_15px_rgba(52,211,153,0.4)] scale-105"
+                        ? "active-lyric-line text-emerald-300 font-bold text-base bg-emerald-500/20 border border-emerald-500/30 shadow-[0_0_15px_rgba(52,211,153,0.4)] scale-105"
                         : "text-white/60 hover:text-white hover:bg-white/10 font-medium"
                     }`}
                   >
