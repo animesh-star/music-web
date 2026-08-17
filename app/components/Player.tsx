@@ -2594,23 +2594,44 @@ export default function Player({
     }
     
     if (audioRef.current) {
-      const isAudioPlaying = !audioRef.current.paused && audioRef.current.currentTime > 0;
+      const audio = audioRef.current;
+      const isAudioPlaying = !audio.paused && audio.currentTime > 0;
+
       if (isAudioPlaying) {
         userPausedRef.current = true;
-        audioRef.current.pause();
+        audio.pause();
         setIsPlaying(false);
       } else {
         userPausedRef.current = false;
-        audioRef.current.volume = 1;
-        audioRef.current.muted = false;
-        audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {
+        audio.volume = 1;
+        audio.muted = false;
+
+        // Ensure audio source is set if missing or empty
+        const targetTrack = currentTrack;
+        if (targetTrack && targetTrack.id !== "placeholder") {
+          const streamUrl = targetTrack.audioUrl
+            ? targetTrack.audioUrl
+            : (targetTrack.videoId ? `/api/audio-stream?v=${targetTrack.videoId}` : "");
+          if (streamUrl) {
+            const fullUrl = streamUrl.startsWith("http") ? streamUrl : window.location.origin + streamUrl;
+            if (audio.src !== fullUrl) {
+              audio.src = fullUrl;
+              if (currentTime > 0) audio.currentTime = currentTime;
+            }
+          }
+        }
+
+        audio.play().then(() => {
+          setIsPlaying(true);
+        }).catch((err) => {
+          console.error("Audio play error:", err);
           setIsPlaying(true);
         });
       }
     } else {
       setIsPlaying((prev) => !prev);
     }
-  }, []);
+  }, [currentTrack, currentTime]);
 
   // Helper to persist playlist state snapshots to localStorage
   const savePlaylistStates = () => {
