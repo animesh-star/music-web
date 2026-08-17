@@ -3036,20 +3036,7 @@ export default function Player({
     setIsSearching(false);
   }
 
-  // Disable accidental page refresh hotkeys (F5, Ctrl+R, Cmd+R)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (
-        e.key === "F5" ||
-        ((e.ctrlKey || e.metaKey) && (e.key === "r" || e.key === "R"))
-      ) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+
 
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -3254,15 +3241,25 @@ export default function Player({
       {/* Loving Heart Burst Particles (Appears for 5.5s on favorite click only) */}
       <ParticleCanvas burstTrigger={burstTrigger} />
 
-      {/* Now Playing Active Header Banner (Single Horizontal Line) */}
+      {/* Now Playing Active Header Banner (Single Horizontal Line with Refresh Website Button) */}
       {currentTrack && currentTrack.id !== "placeholder" && (
-        <div className="w-full bg-rose-500/15 border border-rose-500/30 rounded-2xl px-4 py-2 text-center backdrop-blur-xl shadow-lg animate-in fade-in slide-in-from-top-1 overflow-hidden whitespace-nowrap">
-          <div className="flex items-center justify-center gap-2 whitespace-nowrap overflow-x-auto no-scrollbar">
+        <div className="w-full bg-rose-500/15 border border-rose-500/30 rounded-2xl px-4 py-2 flex items-center justify-between gap-2 backdrop-blur-xl shadow-lg animate-in fade-in slide-in-from-top-1 overflow-hidden whitespace-nowrap">
+          <div className="flex items-center gap-2 whitespace-nowrap overflow-x-auto no-scrollbar min-w-0">
             <span className="text-[11px] text-rose-400 font-bold uppercase tracking-wider shrink-0">🎵 NOW PLAYING:</span>
-            <span className="text-xs sm:text-sm font-bold text-white whitespace-nowrap">
+            <span className="text-xs sm:text-sm font-bold text-white whitespace-nowrap truncate">
               {currentTrack.title} <span className="text-rose-300 font-semibold">• {currentTrack.artist} {currentTrack.film ? `(${currentTrack.film})` : ""}</span>
             </span>
           </div>
+
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="flex items-center gap-1 bg-white/10 hover:bg-white/20 text-white/80 hover:text-white px-2.5 py-1 rounded-full text-[10px] font-semibold border border-white/15 transition-all cursor-pointer shrink-0"
+            title="Refresh Website"
+          >
+            <RotateCw className="w-3 h-3 text-rose-300" />
+            <span>Refresh</span>
+          </button>
         </div>
       )}
 
