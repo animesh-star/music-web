@@ -2605,9 +2605,43 @@ export default function Player({
       return;
     }
 
-    userPausedRef.current = isPlaying;
-    setIsPlaying((prev) => !prev);
-  }, [isPlaying]);
+    if (audioRef.current) {
+      if (isPlaying) {
+        try { audioRef.current.pause(); } catch {}
+        try { if (silentAudioRef.current) silentAudioRef.current.pause(); } catch {}
+        userPausedRef.current = true;
+        setIsPlaying(false);
+      } else {
+        userPausedRef.current = false;
+        try {
+          audioRef.current.volume = 1;
+          audioRef.current.muted = false;
+        } catch {}
+
+        const targetTrack = currentTrack;
+        if (targetTrack && targetTrack.id !== "placeholder") {
+          const streamUrl = targetTrack.audioUrl
+            ? targetTrack.audioUrl
+            : (targetTrack.videoId ? `/api/audio-stream?v=${targetTrack.videoId}` : "");
+          if (streamUrl) {
+            const fullUrl = streamUrl.startsWith("http") ? streamUrl : window.location.origin + streamUrl;
+            if (audioRef.current.src !== fullUrl) {
+              audioRef.current.src = fullUrl;
+              if (currentTime > 0) audioRef.current.currentTime = currentTime;
+            }
+          }
+        }
+
+        audioRef.current.play().then(() => {
+          setIsPlaying(true);
+        }).catch(() => {
+          setIsPlaying(true);
+        });
+      }
+    } else {
+      setIsPlaying((prev) => !prev);
+    }
+  }, [isPlaying, currentTrack, currentTime]);
 
   // Helper to persist playlist state snapshots to localStorage
   const savePlaylistStates = () => {
