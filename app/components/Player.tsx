@@ -2459,22 +2459,19 @@ export default function Player({
     };
 
     const handleEnded = () => {
-      const dur = audio.duration || 0;
-      const cur = audio.currentTime || 0;
-      // Only auto-advance if the song actually played to its natural conclusion
-      if (dur > 0 && cur >= Math.max(5, dur - 3)) {
-        setIsPlaying(true);
-        if (handleNextTrackRef.current) {
-          handleNextTrackRef.current();
-        }
-      } else {
-        // Stream load delay or error — switch to YouTube fallback without skipping the user's song!
-        setUseYtFallback(true);
+      setIsPlaying(true);
+      if (handleNextTrackRef.current) {
+        handleNextTrackRef.current();
       }
     };
 
     const handleError = () => {
-      setUseYtFallback(true);
+      if (audio.src) {
+        try {
+          audio.load();
+          if (isPlaying) audio.play().catch(() => {});
+        } catch {}
+      }
     };
 
     audio.addEventListener("loadedmetadata", handleLoadedMetadata);
@@ -2595,12 +2592,12 @@ export default function Player({
 
   // User interactions
   const handlePlayPause = useCallback(() => {
-    if (audioRef.current) { if (isPlaying) { audioRef.current.pause(); } else { audioRef.current.play().catch(() => {}); } }
     if (spotifyPlayerRef.current) {
       spotifyPlayerRef.current.togglePlay().then(() => setIsPlaying((prev) => !prev)).catch(() => {});
       return;
     }
-    if (!useYtFallbackRef.current && audioRef.current) {
+    
+    if (audioRef.current) {
       const isAudioPlaying = !audioRef.current.paused && audioRef.current.currentTime > 0;
       if (isAudioPlaying) {
         userPausedRef.current = true;
@@ -2608,28 +2605,14 @@ export default function Player({
         setIsPlaying(false);
       } else {
         userPausedRef.current = false;
+        audioRef.current.volume = 1;
+        audioRef.current.muted = false;
         audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {
-          setUseYtFallback(true);
+          setIsPlaying(true);
         });
       }
-    } else if (playerRef.current) {
-      const state = typeof playerRef.current.getPlayerState === "function" ? playerRef.current.getPlayerState() : -1;
-      const isActuallyPlaying = window.YT && state === window.YT.PlayerState.PLAYING;
-      if (isActuallyPlaying) {
-        userPausedRef.current = true;
-        playerRef.current.pauseVideo();
-        setIsPlaying(false);
-      } else {
-        userPausedRef.current = false;
-        try {
-          playerRef.current.unMute();
-          playerRef.current.setVolume(100);
-          playerRef.current.playVideo();
-          setIsPlaying(true);
-        } catch {
-          // ignore
-        }
-      }
+    } else {
+      setIsPlaying((prev) => !prev);
     }
   }, []);
 
