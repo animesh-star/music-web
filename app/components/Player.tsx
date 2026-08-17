@@ -1162,13 +1162,15 @@ export default function Player({
   const playedTrackIdsRef = useRef<Set<string>>(new Set());
   const userPausedRef = useRef<boolean>(true);
 
-  // Hydrate scene & position memory from localStorage on client load
+  // Hydrate exact track & paused timestamp memory from localStorage on page load/refresh
   useEffect(() => {
     if (typeof window !== "undefined") {
       try {
         const savedPlaylistId = localStorage.getItem("phoenix_active_playlist_id");
         const savedStates = localStorage.getItem("phoenix_playlist_states");
         const savedFavs = localStorage.getItem("phoenix_favorite_tracks");
+        const savedTrackStr = localStorage.getItem("phoenix_active_saved_track");
+        const savedTimestampStr = localStorage.getItem("phoenix_saved_timestamp");
 
         if (savedStates) {
           const parsed = JSON.parse(savedStates);
@@ -1180,16 +1182,41 @@ export default function Player({
         }
 
         if (savedPlaylistId) {
-          const savedState = playlistStatesRef.current[savedPlaylistId];
           setCurrentPlaylistId(savedPlaylistId);
+          const savedState = playlistStatesRef.current[savedPlaylistId];
           if (savedState) {
             setTrackIndex(savedState.trackIndex || 0);
-            setCurrentTime(savedState.currentTime || 0);
-            initialSeekTimeRef.current = savedState.currentTime || 0;
           }
         }
+
+        if (savedTrackStr) {
+          const trackObj = JSON.parse(savedTrackStr);
+          const timestamp = savedTimestampStr ? parseFloat(savedTimestampStr) : 0;
+          const validTimestamp = isFinite(timestamp) && timestamp > 0 ? timestamp : 0;
+
+          // Hydrate exact saved track & paused timestamp
+          setCurrentTime(validTimestamp);
+          initialSeekTimeRef.current = validTimestamp;
+          savedSeekPositionRef.current = validTimestamp;
+          setIsPlaying(false); // ALWAYS PAUSED WHERE LEFT OFF ON REFRESH!
+
+          setPlaylists(prev => {
+            const targetId = savedPlaylistId || "spotify-library";
+            return prev.map(p => {
+              if (p.id === targetId) {
+                const hasTrack = p.tracks.some(t => t.id === trackObj.id);
+                if (!hasTrack) {
+                  return { ...p, tracks: [trackObj, ...p.tracks] };
+                }
+              }
+              return p;
+            });
+          });
+        } else {
+          setIsPlaying(false);
+        }
       } catch {
-        // ignore localStorage errors
+        setIsPlaying(false);
       } finally {
         setIsHydrated(true);
       }
@@ -2417,6 +2444,11 @@ export default function Player({
         if (typeof window !== "undefined") {
           try {
             localStorage.setItem("phoenix_playlist_states", JSON.stringify(playlistStatesRef.current));
+            localStorage.setItem("phoenix_active_playlist_id", currentPlaylistId);
+            if (currentTrack && currentTrack.id !== "placeholder") {
+              localStorage.setItem("phoenix_active_saved_track", JSON.stringify(currentTrack));
+              localStorage.setItem("phoenix_saved_timestamp", String(audio.currentTime));
+            }
           } catch {}
         }
       }
