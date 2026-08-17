@@ -711,41 +711,25 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
             </button>
           </div>
 
-          {/* Playlist selector dropdown & Music List Toggle Button */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            <div className="flex items-center gap-1.5 bg-white/10 hover:bg-white/15 px-2.5 py-1 rounded-full text-[11px] font-medium text-white/90 border border-white/10 transition-colors">
-              <Layers className="w-3 h-3 text-white/70" />
-              <select
-                value={currentPlaylistId}
-                onChange={(e) => {
-                  onSwitchPlaylist(e.target.value);
-                  e.target.blur();
-                }}
-                className="bg-transparent text-white focus:outline-none cursor-pointer text-[11px] font-medium"
+          {/* Small Connect Spotify button in corner of music bar */}
+          <div className="flex items-center gap-2 shrink-0">
+            {!spotifyLoggedIn ? (
+              <button
+                type="button"
+                onClick={() => onSwitchPlaylist("connect-spotify")}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#1DB954]/20 hover:bg-[#1DB954]/30 border border-[#1DB954]/40 text-[#1DB954] hover:text-[#1ed760] text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95"
+                title="Connect Spotify Account"
               >
-                {playlists.filter(pl => !pl.id.startsWith("search-play-")).map((pl) => (
-                  <option key={pl.id} value={pl.id} className="bg-neutral-900 text-white">
-                    {pl.name}
-                  </option>
-                ))}
-                {!spotifyLoggedIn && (
-                  <option value="connect-spotify" className="bg-neutral-900 text-[#1DB954] font-semibold">
-                    🎵 Connect Spotify
-                  </option>
-                )}
-              </select>
-            </div>
-
-
-            <button
-              type="button"
-              onClick={onAddCurrentToPlaylist}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 hover:text-emerald-200 text-xs font-bold transition-all duration-200 cursor-pointer shadow-sm active:scale-95"
-              title="Add current song to Playlist"
-            >
-              <Plus className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Add to Playlist</span>
-            </button>
+                <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                  <path d="M12 0C5.376 0 0 5.376 0 12s5.376 12 12 12 12-5.376 12-12S18.624 0 12 0zm5.521 17.341c-.219.359-.692.474-1.051.255-2.882-1.761-6.51-2.16-10.784-1.183-.408.094-.814-.162-.908-.57-.094-.408.162-.814.57-.908 4.678-1.07 8.685-.615 11.918 1.356.359.219.474.692.255 1.05zm1.474-3.279c-.276.449-.868.595-1.317.319-3.298-2.028-8.327-2.616-12.23-1.43-.508.154-1.04-.136-1.194-.644-.154-.508.136-1.04.644-1.194 4.458-1.354 9.997-.7 13.778 1.63.449.277.595.869.319 1.319zm.126-3.416c-3.953-2.348-10.472-2.565-14.254-1.417-.611.185-1.257-.168-1.442-.779-.185-.611.168-1.257.779-1.442 4.341-1.318 11.536-1.06 16.088 1.643.55.326.732 1.037.406 1.587-.326.55-1.037.732-1.577.408z"/>
+                </svg>
+                <span>Connect Spotify</span>
+              </button>
+            ) : (
+              <span className="flex items-center gap-1 text-[11px] font-bold text-[#1DB954] bg-[#1DB954]/10 px-2.5 py-1 rounded-full border border-[#1DB954]/20">
+                ✓ Spotify Connected
+              </span>
+            )}
           </div>
         </div>
 
@@ -925,42 +909,22 @@ const MobilePlayer = React.memo(function MobilePlayer({
             {currentTrack.artist}
           </p>
 
-          {/* Playlist selector & Music List Toggle on mobile */}
-          <div className="mt-1 flex items-center justify-between gap-1 text-[10.5px] text-white/80">
-            <div className="flex items-center gap-1">
-              <Disc className="w-3 h-3 text-white/60" />
-              <select
-                value={currentPlaylistId}
-                onChange={(e) => {
-                  onSwitchPlaylist(e.target.value);
-                  e.target.blur();
-                }}
-                className="bg-black/30 text-white rounded-md px-1.5 py-0.5 focus:outline-none text-[10.5px]"
-              >
-                {playlists.filter(pl => !pl.id.startsWith("search-play-")).map((pl) => (
-                  <option key={pl.id} value={pl.id} className="bg-neutral-900 text-white">
-                    {pl.name}
-                  </option>
-                ))}
-                {!spotifyLoggedIn && (
-                  <option value="connect-spotify" className="bg-neutral-900 text-[#1DB954] font-semibold">
-                    🎵 Connect Spotify
-                  </option>
-                )}
-              </select>
-            </div>
-
-            <div className="flex">
+          {/* Small Connect Spotify button in corner of mobile music bar */}
+          <div className="mt-1 flex items-center justify-between gap-1 text-[10.5px]">
+            {!spotifyLoggedIn ? (
               <button
                 type="button"
-                onClick={onAddCurrentToPlaylist}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 hover:text-emerald-200 text-xs font-bold transition-all duration-200 cursor-pointer shadow-sm active:scale-95"
-                title="Add current song to Playlist"
+                onClick={() => onSwitchPlaylist("connect-spotify")}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#1DB954]/20 hover:bg-[#1DB954]/30 border border-[#1DB954]/40 text-[#1DB954] text-[10px] font-bold transition-all cursor-pointer"
+                title="Connect Spotify Account"
               >
-                <Plus className="w-3.5 h-3.5 text-emerald-400" />
-                <span>+ Playlist</span>
+                <span>🎵 Connect Spotify</span>
               </button>
-            </div>
+            ) : (
+              <span className="text-[10px] font-bold text-[#1DB954] bg-[#1DB954]/10 px-2 py-0.5 rounded-full">
+                ✓ Spotify
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -3152,66 +3116,33 @@ export default function Player({
     setTrackIndex(0);
     setCurrentTime(0);
 
-    if (audioRef.current) {
-      try { audioRef.current.currentTime = 0; } catch {}
-    }
-    if (playerRef.current && typeof playerRef.current.seekTo === "function") {
-      try { playerRef.current.seekTo(0, true); } catch {}
-    }
-
-    setIsPlaying(true);
-
-    // Force single audio playback via YouTube streaming engine to prevent any double audio glitch
-    if (audioRef.current) {
-      try {
-        audioRef.current.pause();
-        audioRef.current.removeAttribute("src");
-        audioRef.current.load();
-      } catch {}
-    }
-
-    setUseYtFallback(true);
-
-    const playVideoId = (vid: string) => {
+    const playAudioStream = (vid: string, audioUrl?: string) => {
       track.videoId = vid;
-      setPlaylists(prev => prev.map(p => {
-        if (p.id === tempPlaylistId) {
-          return {
-            ...p,
-            tracks: p.tracks.map(t => t.id === track.id ? { ...t, videoId: vid } : t)
-          };
-        }
-        return p;
-      }));
-      lastLoadedYtVideoId.current = vid;
-      if (playerRef.current && typeof playerRef.current.loadVideoById === "function") {
-        try {
-          playerRef.current.unMute();
-          playerRef.current.setVolume(100);
-          playerRef.current.loadVideoById({ videoId: vid, startSeconds: 0 });
-          playerRef.current.playVideo();
-        } catch {}
+      const streamUrl = audioUrl || `/api/audio-stream?v=${vid}`;
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+        const fullUrl = streamUrl.startsWith("http") ? streamUrl : window.location.origin + streamUrl;
+        audioRef.current.src = fullUrl;
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().then(() => {
+          setIsPlaying(true);
+        }).catch(() => {
+          setIsPlaying(true);
+        });
+      } else {
+        setIsPlaying(true);
       }
     };
 
-    if (track.videoId) {
-      playVideoId(track.videoId);
+    if (track.audioUrl || track.videoId) {
+      playAudioStream(track.videoId, track.audioUrl);
     } else {
       fetch(`/api/youtube-search?q=${encodeURIComponent(track.title + " " + track.artist)}`)
         .then(res => res.json())
         .then(data => {
           if (data.videoId) {
-            playVideoId(data.videoId);
-          } else {
-            fetch(`https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(track.title + " " + track.artist)}&filter=music_songs`)
-              .then(res => res.json())
-              .then(pipedData => {
-                if (pipedData && pipedData.items && pipedData.items[0]) {
-                  const vid = pipedData.items[0].url.split("v=")[1];
-                  if (vid) playVideoId(vid);
-                }
-              })
-              .catch(() => {});
+            playAudioStream(data.videoId);
           }
         })
         .catch(() => {});
