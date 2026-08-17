@@ -10,12 +10,13 @@ export async function GET(request: Request) {
 
   const range = request.headers.get("range");
 
-  // High-availability audio stream provider endpoints
+  // High-availability ultra-fast audio stream nodes
   const streamProviders = [
     `https://inv.nadeko.net/latest_version?id=${encodeURIComponent(v)}&itag=140`,
     `https://invidious.f5.si/latest_version?id=${encodeURIComponent(v)}&itag=140`,
     `https://invidious.nerdvpn.de/latest_version?id=${encodeURIComponent(v)}&itag=140`,
     `https://invidious.tiekoetter.com/latest_version?id=${encodeURIComponent(v)}&itag=140`,
+    `https://yt.chocolatemoo53.com/latest_version?id=${encodeURIComponent(v)}&itag=140`,
   ];
 
   for (const streamUrl of streamProviders) {
@@ -29,14 +30,14 @@ export async function GET(request: Request) {
 
       const upstreamRes = await fetch(streamUrl, {
         headers,
-        signal: AbortSignal.timeout(4000),
+        signal: AbortSignal.timeout(1800),
       });
 
       if (upstreamRes.ok || upstreamRes.status === 206) {
         const responseHeaders = new Headers();
         responseHeaders.set("Content-Type", upstreamRes.headers.get("content-type") || "audio/mp4");
         responseHeaders.set("Accept-Ranges", "bytes");
-        responseHeaders.set("Cache-Control", "public, max-age=3600");
+        responseHeaders.set("Cache-Control", "public, max-age=86400");
 
         if (upstreamRes.headers.get("content-length")) {
           responseHeaders.set("Content-Length", upstreamRes.headers.get("content-length")!);
@@ -64,7 +65,7 @@ export async function GET(request: Request) {
     try {
       const pipedRes = await fetch(`${instance}/streams/${encodeURIComponent(v)}`, {
         headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
-        signal: AbortSignal.timeout(3000),
+        signal: AbortSignal.timeout(2000),
       });
       if (pipedRes.ok) {
         const data = await pipedRes.json();
@@ -75,7 +76,7 @@ export async function GET(request: Request) {
           if (bestAudio && bestAudio.url) {
             const upstreamRes = await fetch(bestAudio.url, {
               headers: range ? { Range: range } : {},
-              signal: AbortSignal.timeout(4000),
+              signal: AbortSignal.timeout(2000),
             });
             if (upstreamRes.ok || upstreamRes.status === 206) {
               const responseHeaders = new Headers();
