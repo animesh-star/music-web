@@ -723,7 +723,7 @@ const DesktopPlayer = React.memo(function DesktopPlayer({
                 }}
                 className="bg-transparent text-white focus:outline-none cursor-pointer text-[11px] font-medium"
               >
-                {playlists.map((pl) => (
+                {playlists.filter(pl => !pl.id.startsWith("search-play-")).map((pl) => (
                   <option key={pl.id} value={pl.id} className="bg-neutral-900 text-white">
                     {pl.name}
                   </option>
@@ -937,7 +937,7 @@ const MobilePlayer = React.memo(function MobilePlayer({
                 }}
                 className="bg-black/30 text-white rounded-md px-1.5 py-0.5 focus:outline-none text-[10.5px]"
               >
-                {playlists.map((pl) => (
+                {playlists.filter(pl => !pl.id.startsWith("search-play-")).map((pl) => (
                   <option key={pl.id} value={pl.id} className="bg-neutral-900 text-white">
                     {pl.name}
                   </option>
@@ -2988,41 +2988,47 @@ export default function Player({
     try {
       if (token) {
         // Search via Spotify API with Indian market prioritization
-        const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(searchQuery)}&type=track&market=IN&limit=12`, {
+        const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(searchQuery)}&type=track&market=IN&limit=5`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (res.ok) {
           const data = await res.json();
-          const tracks: Track[] = data.tracks.items.map((item: any) => ({
-            id: `spotify-search-${item.id}`,
-            title: item.name,
-            artist: item.artists?.map((a: any) => a.name).join(", ") || "Unknown",
-            film: item.album?.name || "",
-            year: parseInt(item.album?.release_date?.split("-")[0]) || 2024,
-            duration: Math.floor(item.duration_ms / 1000) || 180,
-            videoId: "",
-          }));
-          setSearchResults(tracks);
-          setIsSearching(false);
-          return;
+          if (data.tracks?.items?.length > 0) {
+            const item = data.tracks.items[0];
+            const topTrack: Track = {
+              id: `spotify-search-${item.id}`,
+              title: item.name,
+              artist: item.artists?.map((a: any) => a.name).join(", ") || "Unknown",
+              film: item.album?.name || "",
+              year: parseInt(item.album?.release_date?.split("-")[0]) || 2024,
+              duration: Math.floor(item.duration_ms / 1000) || 180,
+              videoId: "",
+            };
+            handlePlaySearchResult(topTrack);
+            setIsSearching(false);
+            return;
+          }
         }
       }
 
       // Universal iTunes Search API prioritizing Indian songs (country=in)
-      const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(searchQuery)}&entity=song&country=in&limit=12`);
+      const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(searchQuery)}&entity=song&country=in&limit=5`);
       if (itunesRes.ok) {
         const itunesData = await itunesRes.json();
-        const tracks: Track[] = itunesData.results.map((item: any) => ({
-          id: `itunes-search-${item.trackId}`,
-          title: item.trackName,
-          artist: item.artistName,
-          film: item.collectionName || "",
-          year: parseInt(item.releaseDate?.split("-")[0]) || 2024,
-          duration: Math.floor(item.trackTimeMillis / 1000) || 180,
-          videoId: "",
-          audioUrl: item.previewUrl || undefined,
-        }));
-        setSearchResults(tracks);
+        if (itunesData.results?.length > 0) {
+          const item = itunesData.results[0];
+          const topTrack: Track = {
+            id: `itunes-search-${item.trackId}`,
+            title: item.trackName,
+            artist: item.artistName,
+            film: item.collectionName || "",
+            year: parseInt(item.releaseDate?.split("-")[0]) || 2024,
+            duration: Math.floor(item.trackTimeMillis / 1000) || 180,
+            videoId: "",
+            audioUrl: item.previewUrl || undefined,
+          };
+          handlePlaySearchResult(topTrack);
+        }
       }
     } catch (err) {
       console.error("Universal Search error:", err);
@@ -3279,31 +3285,6 @@ export default function Player({
             </button>
           )}
         </form>
-        {searchResults.length > 0 && (
-          <div className="absolute top-full mt-2 w-full bg-neutral-900/95 backdrop-blur-xl border border-white/15 rounded-2xl shadow-2xl z-[70] max-h-60 overflow-y-auto p-2 animate-in fade-in duration-200">
-             <div className="flex justify-between items-center px-2 pb-2 mb-2 border-b border-white/10">
-               <span className="text-xs text-white/70 font-semibold">Search Results</span>
-               <button type="button" onClick={() => setSearchQuery("")} className="text-white/50 hover:text-white cursor-pointer p-1">
-                  <X className="w-3.5 h-3.5" />
-               </button>
-             </div>
-             <div className="flex flex-col gap-1">
-               {searchResults.map((tr) => (
-                 <button 
-                   key={tr.id}
-                   onClick={() => handlePlaySearchResult(tr)}
-                   type="button"
-                   className="flex items-center justify-between text-left p-2 rounded-xl hover:bg-white/10 transition-colors cursor-pointer"
-                 >
-                   <div className="min-w-0">
-                      <p className="text-xs text-white font-medium truncate">{tr.title}</p>
-                      <p className="text-[10px] text-white/50 truncate">{tr.artist}</p>
-                   </div>
-                 </button>
-               ))}
-             </div>
-          </div>
-        )}
       </div>
 
       {/* Hidden single persistent YouTube iframe element wrapper (positioned in-viewport so browser never throttles audio) */}
@@ -3515,7 +3496,7 @@ export default function Player({
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              {playlists.map((pl) => {
+              {playlists.filter(pl => !pl.id.startsWith("search-play-")).map((pl) => {
                 const isSelected = pl.id === currentPlaylistId;
                 const isCustom = pl.id.startsWith("user-pl-");
                 return (
