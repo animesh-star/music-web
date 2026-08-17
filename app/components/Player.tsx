@@ -3287,6 +3287,16 @@ export default function Player({
         </form>
       </div>
 
+      {/* Native HTML5 Audio Element explicitly mounted in DOM for permanent Mobile & Desktop Background Audio */}
+      <audio
+        ref={audioRef}
+        id="phoenix-bg-audio"
+        preload="auto"
+        playsInline
+        crossOrigin="anonymous"
+        className="hidden"
+      />
+
       {/* Hidden single persistent YouTube iframe element wrapper (positioned in-viewport so browser never throttles audio) */}
       <div
         ref={iframeWrapperRef}
