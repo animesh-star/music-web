@@ -1033,7 +1033,7 @@ export default function Player({
 }: {
   onSceneChange?: (sceneClass: string) => void;
 }) {
-  const [currentPlaylistId, setCurrentPlaylistId] = useState<string>("trending-indian");
+  const [currentPlaylistId, setCurrentPlaylistId] = useState<string>("spotify-library");
   const [trackIndex, setTrackIndex] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
@@ -3283,6 +3283,30 @@ export default function Player({
           )}
         </form>
       </div>
+
+      {/* Prominent Direct Spotify Connect Card Section */}
+      {!spotifyLoggedIn && (
+        <div className="w-full bg-emerald-950/40 border border-[#1DB954]/40 rounded-3xl p-5 backdrop-blur-2xl shadow-2xl flex flex-col items-center text-center animate-in fade-in duration-300">
+          <div className="w-11 h-11 rounded-2xl bg-[#1DB954] flex items-center justify-center shadow-lg mb-2.5">
+            <svg className="w-6 h-6 text-black fill-current" viewBox="0 0 24 24">
+              <path d="M12 0C5.376 0 0 5.376 0 12s5.376 12 12 12 12-5.376 12-12S18.624 0 12 0zm5.521 17.341c-.219.359-.692.474-1.051.255-2.882-1.761-6.51-2.16-10.784-1.183-.408.094-.814-.162-.908-.57-.094-.408.162-.814.57-.908 4.678-1.07 8.685-.615 11.918 1.356.359.219.474.692.255 1.05zm1.474-3.279c-.276.449-.868.595-1.317.319-3.298-2.028-8.327-2.616-12.23-1.43-.508.154-1.04-.136-1.194-.644-.154-.508.136-1.04.644-1.194 4.458-1.354 9.997-.7 13.778 1.63.449.277.595.869.319 1.319zm.126-3.416c-3.953-2.348-10.472-2.565-14.254-1.417-.611.185-1.257-.168-1.442-.779-.185-.611.168-1.257.779-1.442 4.341-1.318 11.536-1.06 16.088 1.643.55.326.732 1.037.406 1.587-.326.55-1.037.732-1.577.408z"/>
+            </svg>
+          </div>
+
+          <h3 className="text-sm font-extrabold text-white">Connect Your Spotify</h3>
+          <p className="text-[11px] text-white/70 mt-1 max-w-xs leading-relaxed mb-3.5">
+            Sign in to stream your personal playlists, saved tracks, and liked songs directly in Echoa.
+          </p>
+
+          <button
+            type="button"
+            onClick={() => handleSwitchPlaylist("connect-spotify")}
+            className="w-full py-2.5 px-4 bg-[#1DB954] hover:bg-[#1ed760] text-black font-extrabold text-xs rounded-full shadow-lg hover:shadow-[#1DB954]/30 transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <span>🎵 Connect Spotify Account</span>
+          </button>
+        </div>
+      )}
 
       {/* Native HTML5 Audio Element explicitly mounted in DOM for permanent Mobile & Desktop Background Audio */}
       <audio
