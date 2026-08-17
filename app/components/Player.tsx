@@ -1169,9 +1169,9 @@ export default function Player({
     }
     return null;
   }, []);
-  // In production, skip local audio and go straight to YouTube
-  const [useYtFallback, setUseYtFallback] = useState<boolean>(IS_PRODUCTION);
-  const useYtFallbackRef = useRef<boolean>(IS_PRODUCTION);
+  // Native HTML5 audio stream is primary player for failproof background & lock screen audio
+  const [useYtFallback, setUseYtFallback] = useState<boolean>(false);
+  const useYtFallbackRef = useRef<boolean>(false);
 
   useEffect(() => {
     useYtFallbackRef.current = useYtFallback;
@@ -2496,7 +2496,7 @@ export default function Player({
     };
   }, [currentTrack?.id, currentTrack?.videoId, currentTrack?.audioUrl, isPlaying, useYtFallback]);
 
-  // Handle Play / Pause sync
+  // Handle Play / Pause sync (Primary HTML5 Audio for sound + Muted YT Iframe for vinyl animation)
   useEffect(() => {
     if (useYtFallback) {
       if (playerRef.current && typeof playerRef.current.loadVideoById === "function") {
@@ -2519,13 +2519,39 @@ export default function Player({
           playerRef.current.pauseVideo();
         }
       }
-    } else if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.play().catch(() => {
-          setUseYtFallback(true);
-        });
-      } else {
-        audioRef.current.pause();
+    } else {
+      // Primary HTML5 Audio Engine: Keeps playing in background & lock screen without browser throttling
+      if (audioRef.current) {
+        if (isPlaying) {
+          audioRef.current.volume = 1;
+          audioRef.current.muted = false;
+          audioRef.current.play().catch(() => {
+            setUseYtFallback(true);
+          });
+        } else {
+          audioRef.current.pause();
+        }
+      }
+
+      // Muted YouTube Iframe sync for visual vinyl rotation only
+      if (playerRef.current && typeof playerRef.current.loadVideoById === "function") {
+        if (currentTrack.videoId && currentTrack.videoId.length >= 5 && lastLoadedYtVideoId.current !== currentTrack.videoId) {
+          try {
+            playerRef.current.mute();
+            playerRef.current.loadVideoById({ videoId: currentTrack.videoId, startSeconds: Math.floor(currentTime || 0) });
+            lastLoadedYtVideoId.current = currentTrack.videoId;
+          } catch {}
+        }
+        if (isPlaying) {
+          try {
+            playerRef.current.mute();
+            playerRef.current.playVideo();
+          } catch {}
+        } else {
+          try {
+            playerRef.current.pauseVideo();
+          } catch {}
+        }
       }
     }
   }, [isPlaying, useYtFallback, currentTrack.videoId]);
